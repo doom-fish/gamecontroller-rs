@@ -1,11 +1,11 @@
 [package]
 name = "gamecontroller"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/doom-fish/gamecontroller-rs"
 repository = "https://github.com/doom-fish/gamecontroller-rs"
-description = "Safe Rust bindings for Apple's GameController framework — discovery, profile snapshots, and DualSense helpers on macOS"
+description = "Safe Rust bindings for Apple's GameController framework — discovery, device snapshots, live input, and DualSense helpers on macOS"
 authors = ["Per Johansson <per@doom.fish>"]
 keywords = ["gamepad", "controller", "input", "macos", "games"]
 categories = ["api-bindings", "os::macos-apis", "game-development"]
@@ -23,6 +23,7 @@ include = [
     "README.md",
     "LICENSE-*",
     "CHANGELOG.md",
+    "COVERAGE.md",
 ]
 
 [lints.rust]
@@ -60,6 +61,12 @@ name = "02_poll_state"
 
 [[example]]
 name = "03_smoke_surface"
+
+[[example]]
+name = "04_device_snapshots"
+
+[[example]]
+name = "05_input_surface"
 
 [profile.release]
 debug = "full"

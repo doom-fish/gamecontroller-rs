@@ -1,9 +1,9 @@
 //! API-surface coverage harness for `gamecontroller`.
 //!
 //! The crate now wraps the main `GCController` discovery/current-controller
-//! surface plus the legacy `gamepad` / `microGamepad` / `extendedGamepad`
-//! profiles, `GCPhysicalInputProfile`, and `DualSense` trigger readback.
-//! This test keeps the Swift bridge aligned with those headers.
+//! surface plus controller-input snapshots, keyboard/mouse snapshots, legacy
+//! and vendor-specific gamepad families, controller light/haptics/battery data,
+//! and macOS-only racing-wheel/event-controller helpers.
 
 #![allow(clippy::cast_precision_loss, clippy::iter_on_single_items)]
 
@@ -25,9 +25,17 @@ fn read(path: &PathBuf) -> String {
 }
 
 fn read_bridge() -> String {
-    read(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
-        "swift-bridge/Sources/GameControllerBridge/GameController.swift",
-    ))
+    let dir =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("swift-bridge/Sources/GameControllerBridge");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("read_dir {}: {e}", dir.display()))
+        .filter_map(|entry| {
+            let path = entry.ok()?.path();
+            (path.extension().and_then(std::ffi::OsStr::to_str) == Some("swift")).then_some(path)
+        })
+        .collect();
+    files.sort();
+    files.iter().map(read).collect::<Vec<_>>().join("\n")
 }
 
 fn read_header(name: &str) -> String {
@@ -55,31 +63,35 @@ fn extract_member_surface(body: &str) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     let method_re =
         regex_lite::Regex::new(r"(?m)^\s*[+\-]\s*\([^\)]*\)\s*([A-Za-z_][A-Za-z0-9_]*)").unwrap();
-    for c in method_re.captures_iter(body) {
-        out.insert(c[1].to_string());
+    for captures in method_re.captures_iter(body) {
+        out.insert(captures[1].to_string());
     }
     let prop_re = regex_lite::Regex::new(
         r"(?m)^\s*@property\s*(?:\([^\)]*\))?\s*[^;]*?\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:NS_|API_|;)",
     )
     .unwrap();
-    for c in prop_re.captures_iter(body) {
-        out.insert(c[1].to_string());
+    for captures in prop_re.captures_iter(body) {
+        out.insert(captures[1].to_string());
     }
     let getter_re = regex_lite::Regex::new(r"getter\s*=\s*([A-Za-z_][A-Za-z0-9_]*)").unwrap();
-    for c in getter_re.captures_iter(body) {
-        out.insert(c[1].to_string());
+    for captures in getter_re.captures_iter(body) {
+        out.insert(captures[1].to_string());
     }
     out
 }
 
 fn aliases() -> BTreeMap<&'static str, Vec<&'static str>> {
     BTreeMap::from([
+        ("acquired", vec!["isAcquired"]),
+        ("anyKeyPressed", vec!["isAnyKeyPressed"]),
         ("attachedToDevice", vec!["isAttachedToDevice"]),
+        ("buttonForKeyCode", vec!["button(forKeyCode"]),
+        ("changeForElement", vec!["change(for"]),
+        ("coalescedKeyboard", vec!["coalesced"]),
         (
-            "startWirelessControllerDiscoveryWithCompletionHandler",
-            vec!["startWirelessControllerDiscovery"],
+            "createEngineWithLocality",
+            vec!["createEngine(withLocality"],
         ),
-        ("objectForKeyedSubscript", vec!["profile[alias]"]),
         (
             "mappedElementAliasForPhysicalInputName",
             vec!["mappedElementAlias"],
@@ -88,6 +100,9 @@ fn aliases() -> BTreeMap<&'static str, Vec<&'static str>> {
             "mappedPhysicalInputNamesForElementAlias",
             vec!["mappedPhysicalInputNames"],
         ),
+        ("initWithRed", vec!["GCColor(red:"]),
+        ("objectForKeyedSubscript", vec!["profile[alias]", "[alias]"]),
+        ("snapshot", vec!["isSnapshot"]),
         (
             "setModeFeedbackWithStartPosition",
             vec!["gc_dualsense_set_trigger_mode"],
@@ -104,13 +119,24 @@ fn aliases() -> BTreeMap<&'static str, Vec<&'static str>> {
             "setModeSlopeFeedbackWithStartPosition",
             vec!["gc_dualsense_set_trigger_mode"],
         ),
-        ("setModeFeedbackWithResistiveStrengths", vec!["setModeFeedback"]),
+        (
+            "setModeFeedbackWithResistiveStrengths",
+            vec!["setModeFeedback"],
+        ),
         ("setModeVibrationWithAmplitudes", vec!["setModeVibration"]),
+        (
+            "startWirelessControllerDiscoveryWithCompletionHandler",
+            vec!["startWirelessControllerDiscovery"],
+        ),
+        ("unmappedInput", vec!["unmapped"]),
     ])
 }
 
 fn contains_symbol(haystack: &str, symbol: &str) -> bool {
-    if symbol.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '_') {
+    if symbol
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    {
         let pattern = format!(r"\b{}\b", regex_lite::escape(symbol));
         regex_lite::Regex::new(&pattern).unwrap().is_match(haystack)
     } else {
@@ -135,11 +161,16 @@ fn references_in_bridge(
         .collect()
 }
 
-fn report(name: &str, apple: &BTreeSet<String>, ours: &BTreeSet<String>, omitted: &BTreeSet<String>) {
+fn report(
+    name: &str,
+    apple: &BTreeSet<String>,
+    ours: &BTreeSet<String>,
+    omitted: &BTreeSet<String>,
+) {
     let wrapped: BTreeSet<&String> = apple.intersection(ours).collect();
     let missing: BTreeSet<&String> = apple
         .difference(ours)
-        .filter(|s| !omitted.contains(*s))
+        .filter(|symbol| !omitted.contains(*symbol))
         .collect();
     let coverable = wrapped.len() + missing.len();
     let pct = if coverable == 0 {
@@ -155,8 +186,8 @@ fn report(name: &str, apple: &BTreeSet<String>, ours: &BTreeSet<String>, omitted
         missing.len(),
     );
     if !missing.is_empty() {
-        for s in &missing {
-            println!("  - {s}");
+        for symbol in &missing {
+            println!("  - {symbol}");
         }
     }
     assert!(pct >= 100.0, "{name}: {pct:.1}%");
@@ -189,13 +220,45 @@ fn gc_controller_coverage() {
 }
 
 #[test]
+fn gc_controller_input_state_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCControllerInputState", "GCControllerInput", &omitted);
+}
+
+#[test]
+fn gc_controller_live_input_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCControllerLiveInput", "GCControllerInput", &omitted);
+}
+
+#[test]
+fn gc_keyboard_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCKeyboard", "GCKeyboard", &omitted);
+}
+
+#[test]
+fn gc_keyboard_input_coverage() {
+    let omitted = omitted_set(["keyChangedHandler"]);
+    coverage("GCKeyboardInput", "GCKeyboardInput", &omitted);
+}
+
+#[test]
+fn gc_mouse_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCMouse", "GCMouse", &omitted);
+}
+
+#[test]
+fn gc_mouse_input_coverage() {
+    let omitted = omitted_set(["mouseMovedHandler"]);
+    coverage("GCMouseInput", "GCMouseInput", &omitted);
+}
+
+#[test]
 fn gc_physical_input_profile_coverage() {
     let omitted = omitted_set(["valueDidChangeHandler", "setStateFromPhysicalInput"]);
-    coverage(
-        "GCPhysicalInputProfile",
-        "GCPhysicalInputProfile",
-        &omitted,
-    );
+    coverage("GCPhysicalInputProfile", "GCPhysicalInputProfile", &omitted);
 }
 
 #[test]
@@ -206,8 +269,18 @@ fn gc_gamepad_coverage() {
 
 #[test]
 fn gc_micro_gamepad_coverage() {
-    let omitted = omitted_set(["valueChangedHandler", "saveSnapshot", "setStateFromMicroGamepad"]);
+    let omitted = omitted_set([
+        "valueChangedHandler",
+        "saveSnapshot",
+        "setStateFromMicroGamepad",
+    ]);
     coverage("GCMicroGamepad", "GCMicroGamepad", &omitted);
+}
+
+#[test]
+fn gc_directional_gamepad_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCDirectionalGamepad", "GCDirectionalGamepad", &omitted);
 }
 
 #[test]
@@ -221,9 +294,21 @@ fn gc_extended_gamepad_coverage() {
 }
 
 #[test]
+fn gc_dualshock_gamepad_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCDualShockGamepad", "GCDualShockGamepad", &omitted);
+}
+
+#[test]
 fn gc_dualsense_gamepad_coverage() {
     let omitted = omitted_set([]);
     coverage("GCDualSenseGamepad", "GCDualSenseGamepad", &omitted);
+}
+
+#[test]
+fn gc_xbox_gamepad_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCXboxGamepad", "GCXboxGamepad", &omitted);
 }
 
 #[test]
@@ -249,4 +334,52 @@ fn gc_motion_coverage() {
         "setStateFromMotion",
     ]);
     coverage("GCMotion", "GCMotion", &omitted);
+}
+
+#[test]
+fn gc_device_battery_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCDeviceBattery", "GCDeviceBattery", &omitted);
+}
+
+#[test]
+fn gc_device_haptics_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCDeviceHaptics", "GCDeviceHaptics", &omitted);
+}
+
+#[test]
+fn gc_device_light_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCDeviceLight", "GCDeviceLight", &omitted);
+}
+
+#[test]
+fn gc_color_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCColor", "GCColor", &omitted);
+}
+
+#[test]
+fn gc_event_view_controller_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCEventViewController", "GCEventViewController", &omitted);
+}
+
+#[test]
+fn gc_racing_wheel_coverage() {
+    let omitted = omitted_set(["acquireDeviceWithError", "relinquishDevice"]);
+    coverage("GCRacingWheel", "GCRacingWheel", &omitted);
+}
+
+#[test]
+fn gc_racing_wheel_input_state_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCRacingWheelInputState", "GCRacingWheelInput", &omitted);
+}
+
+#[test]
+fn gc_racing_wheel_input_coverage() {
+    let omitted = omitted_set(["nextInputState"]);
+    coverage("GCRacingWheelInput", "GCRacingWheelInput", &omitted);
 }

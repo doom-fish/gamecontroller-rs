@@ -59,10 +59,7 @@ pub type ConnectionCallback = unsafe extern "C" fn(user_info: *mut c_void, conne
 
 extern "C" {
     pub fn gc_string_free(s: *mut c_char);
-    pub fn gc_connected_controllers(
-        out_array: *mut *mut c_void,
-        out_count: *mut usize,
-    ) -> i32;
+    pub fn gc_connected_controllers(out_array: *mut *mut c_void, out_count: *mut usize) -> i32;
     pub fn gc_controller_infos_free(array: *mut c_void, count: usize);
     pub fn gc_controller_details_json(current_only: bool) -> *mut c_char;
 
@@ -94,6 +91,10 @@ extern "C" {
     pub fn gc_keyboard_is_connected() -> bool;
     pub fn gc_keyboard_any_key_pressed() -> bool;
     pub fn gc_keyboard_is_key_pressed(keycode: isize) -> bool;
+    pub fn gc_keyboard_snapshot_json() -> *mut c_char;
+    pub fn gc_mouse_snapshot_json() -> *mut c_char;
+    pub fn gc_event_view_controller_snapshot_json() -> *mut c_char;
+    pub fn gc_racing_wheels_json() -> *mut c_char;
 
     pub fn gc_all_controllers_extras(out_buf: *mut ExtraInfoRaw, max: usize) -> usize;
 

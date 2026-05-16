@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.7.0] - 2026-05-16
+
+### Added
+
+- `GCController.input` / `GCControllerLiveInput` / `GCControllerInputState` snapshots via:
+  - `ControllerDetails::input`
+  - `current_controller_input_snapshot()`
+- Typed device snapshot helpers:
+  - `first_controller_battery()`
+  - `first_controller_light()`
+  - `first_controller_haptics()`
+  - `set_first_controller_light_color()`
+- Richer `GCKeyboard` / `GCMouse` snapshots via `keyboard_snapshot()` and `mouse_snapshot()`.
+- Controller-family coverage for:
+  - `GCDirectionalGamepad`
+  - `GCDualShockGamepad`
+  - `GCXboxGamepad`
+  - `GCColor` / `GCDeviceLight`
+  - `GCDeviceHaptics`
+- macOS-only `connected_racing_wheels()` snapshots for `GCRacingWheel`.
+- `event_view_controller_snapshot()` for `GCEventViewController` defaults.
+- Examples `04_device_snapshots` and `05_input_surface`.
+- Smoke tests for the new snapshot/device surface plus expanded Swift API coverage checks.
+- `COVERAGE.md` documenting the audited sweep and intentional partial/skipped areas.
+
+### Changed
+
+- Split the Swift bridge into logical files (`Core`, `Payloads`, `Controllers`, `Discovery`, `Devices`, `DualSense`) so no single bridge file is monolithic.
+- `ControllerDetails` now includes vendor-specific gamepad families, typed light/haptics snapshots, and optional live-input data.
+- The API-coverage harness now scans every Swift bridge file instead of only the former `GameController.swift` monolith.
+- README surface documentation now reflects the v0.7 snapshot/device additions and the explicit `GCRemote` skip note.
+
+### Partial / skipped notes
+
+- `GCRacingWheel` acquisition/relinquish remains intentionally unwrapped in safe Rust because it is exclusive, handle-oriented state that does not fit the crate's existing snapshot-first design.
+- `GCRemote` does not appear in the inspected macOS GameController headers and is therefore tracked as skipped in `COVERAGE.md`.
+
 ## [0.6.0] - 2026-05-16
 
 ### Added

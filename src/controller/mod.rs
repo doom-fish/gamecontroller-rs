@@ -315,10 +315,7 @@ impl Drop for ConnectionWatcher {
     }
 }
 
-unsafe extern "C" fn trampoline(
-    user_info: *mut core::ffi::c_void,
-    connected: bool,
-) {
+unsafe extern "C" fn trampoline(user_info: *mut core::ffi::c_void, connected: bool) {
     let cb_ptr = user_info.cast::<Box<dyn Fn(bool) + Send + Sync + 'static>>();
     if cb_ptr.is_null() {
         return;
@@ -380,10 +377,7 @@ where
         *slot = Some(Box::new(callback));
     }
     unsafe {
-        ffi::gc_start_wireless_controller_discovery(
-            Some(discovery_trampoline),
-            ptr::null_mut(),
-        );
+        ffi::gc_start_wireless_controller_discovery(Some(discovery_trampoline), ptr::null_mut());
     }
 }
 
@@ -411,9 +405,16 @@ pub fn set_should_monitor_background_events(enabled: bool) {
 /// Set the light bar / status LED color on the first connected
 /// controller (`DualSense`, `DualShock`). Each channel is 0.0..=1.0.
 /// Returns `false` if no controller is connected or it has no light.
-#[must_use] 
+#[must_use]
 pub fn set_first_controller_light(red: f32, green: f32, blue: f32) -> bool {
     unsafe { ffi::gc_first_controller_set_light(red, green, blue) }
+}
+
+/// Set the light bar / status LED color on the first connected controller using
+/// a typed [`Color`] value.
+#[must_use]
+pub fn set_first_controller_light_color(color: Color) -> bool {
+    set_first_controller_light(color.red, color.green, color.blue)
 }
 
 /// Assign the player index (1..=4) on the first connected controller.
@@ -421,7 +422,7 @@ pub fn set_first_controller_light(red: f32, green: f32, blue: f32) -> bool {
 /// This typically lights up the corresponding LED on consoles or sets
 /// the player slot on Xbox / `DualSense`. Returns `false` if no
 /// controller or the index is out of range.
-#[must_use] 
+#[must_use]
 pub fn set_first_controller_player_index(index: i32) -> bool {
     unsafe { ffi::gc_first_controller_set_player_index(index) }
 }
@@ -439,7 +440,7 @@ pub fn first_controller_battery_level() -> f32 {
 ///
 /// Returns `false` if no controller, no haptic support, or Core
 /// Haptics failed to start.
-#[must_use] 
+#[must_use]
 pub fn rumble_first_controller(intensity: f32, sharpness: f32, duration: f64) -> bool {
     unsafe { ffi::gc_first_controller_rumble(intensity, sharpness, duration) }
 }
@@ -459,7 +460,7 @@ pub fn dualsense_is_connected() -> bool {
 
 /// Disable adaptive resistance/vibration on the requested `DualSense`
 /// trigger. Wraps `setModeOff`.
-#[must_use] 
+#[must_use]
 pub fn dualsense_trigger_off(which: DualSenseTrigger) -> bool {
     unsafe { ffi::gc_dualsense_set_trigger_mode(which as i32, 0, 0.0, 0.0, 0.0, 0.0) }
 }
@@ -467,7 +468,7 @@ pub fn dualsense_trigger_off(which: DualSenseTrigger) -> bool {
 /// Apply a resistive "feedback" mode on a `DualSense` trigger.
 /// `start_position` is `0.0..=1.0` (when resistance kicks in),
 /// `strength` is `0.0..=1.0`.
-#[must_use] 
+#[must_use]
 pub fn dualsense_trigger_feedback(
     which: DualSenseTrigger,
     start_position: f32,
@@ -480,7 +481,7 @@ pub fn dualsense_trigger_feedback(
 
 /// Apply a "weapon" mode (resist, then snap) on a `DualSense` trigger.
 /// All inputs `0.0..=1.0`.
-#[must_use] 
+#[must_use]
 pub fn dualsense_trigger_weapon(
     which: DualSenseTrigger,
     start_position: f32,
@@ -501,7 +502,7 @@ pub fn dualsense_trigger_weapon(
 
 /// Apply a vibration mode on a `DualSense` trigger. `frequency` is in
 /// Hz (typically `1.0..=100.0`); `amplitude` is `0.0..=1.0`.
-#[must_use] 
+#[must_use]
 pub fn dualsense_trigger_vibration(
     which: DualSenseTrigger,
     start_position: f32,
