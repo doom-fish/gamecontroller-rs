@@ -243,3 +243,86 @@ public func gc_unregister_connection_callback(_ token: UnsafeMutableRawPointer?)
     if let o = state.disconnectObserver { nc.removeObserver(o) }
     Unmanaged<NotifyState>.fromOpaque(token).release()
 }
+
+// MARK: - Light + simple haptics (v0.3)
+
+@_cdecl("gc_first_controller_set_light")
+public func gc_first_controller_set_light(
+    _ red: Float, _ green: Float, _ blue: Float
+) -> Bool {
+    guard let c = GCController.controllers().first else { return false }
+    guard let light = c.light else { return false }
+    light.color = GCColor(red: red, green: green, blue: blue)
+    return true
+}
+
+@_cdecl("gc_first_controller_set_player_index")
+public func gc_first_controller_set_player_index(_ index: Int32) -> Bool {
+    guard let c = GCController.controllers().first else { return false }
+    if let pi = GCControllerPlayerIndex(rawValue: Int(index)) {
+        c.playerIndex = pi
+        return true
+    }
+    return false
+}
+
+@_cdecl("gc_first_controller_battery_level")
+public func gc_first_controller_battery_level() -> Float {
+    guard let c = GCController.controllers().first, let b = c.battery else { return -1 }
+    return b.batteryLevel
+}
+
+#if canImport(CoreHaptics)
+import CoreHaptics
+
+private var hapticEngines: [ObjectIdentifier: CHHapticEngine] = [:]
+
+@_cdecl("gc_first_controller_rumble")
+public func gc_first_controller_rumble(
+    _ intensity: Float, _ sharpness: Float, _ duration: Double
+) -> Bool {
+    guard let c = GCController.controllers().first else { return false }
+    guard let haptics = c.haptics else { return false }
+    guard let engine = haptics.createEngine(withLocality: .default) else { return false }
+    do {
+        try engine.start()
+    } catch {
+        return false
+    }
+    let intensityParam = CHHapticEventParameter(
+        parameterID: .hapticIntensity,
+        value: max(0, min(1, intensity))
+    )
+    let sharpnessParam = CHHapticEventParameter(
+        parameterID: .hapticSharpness,
+        value: max(0, min(1, sharpness))
+    )
+    let event = CHHapticEvent(
+        eventType: .hapticContinuous,
+        parameters: [intensityParam, sharpnessParam],
+        relativeTime: 0,
+        duration: max(0.01, duration)
+    )
+    do {
+        let pattern = try CHHapticPattern(events: [event], parameters: [])
+        let player = try engine.makePlayer(with: pattern)
+        try player.start(atTime: 0)
+        hapticEngines[ObjectIdentifier(engine)] = engine
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.1) {
+            engine.stop(completionHandler: nil)
+            hapticEngines.removeValue(forKey: ObjectIdentifier(engine))
+        }
+        return true
+    } catch {
+        engine.stop(completionHandler: nil)
+        return false
+    }
+}
+#else
+@_cdecl("gc_first_controller_rumble")
+public func gc_first_controller_rumble(
+    _ intensity: Float, _ sharpness: Float, _ duration: Double
+) -> Bool {
+    return false
+}
+#endif

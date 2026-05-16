@@ -269,3 +269,39 @@ where
         _callback: unsafe { Box::from_raw(raw_box) },
     }
 }
+
+/// Set the light bar / status LED color on the first connected
+/// controller (`DualSense`, `DualShock`). Each channel is 0.0..=1.0.
+/// Returns `false` if no controller is connected or it has no light.
+#[must_use] 
+pub fn set_first_controller_light(red: f32, green: f32, blue: f32) -> bool {
+    unsafe { ffi::gc_first_controller_set_light(red, green, blue) }
+}
+
+/// Assign the player index (1..=4) on the first connected controller.
+///
+/// This typically lights up the corresponding LED on consoles or sets
+/// the player slot on Xbox / `DualSense`. Returns `false` if no
+/// controller or the index is out of range.
+#[must_use] 
+pub fn set_first_controller_player_index(index: i32) -> bool {
+    unsafe { ffi::gc_first_controller_set_player_index(index) }
+}
+
+/// Read the battery level (0.0..=1.0) of the first connected
+/// controller. Returns `-1.0` if the controller has no battery
+/// (wired) or none is connected.
+#[must_use]
+pub fn first_controller_battery_level() -> f32 {
+    unsafe { ffi::gc_first_controller_battery_level() }
+}
+
+/// Play a simple continuous haptic on the first controller for
+/// `duration` seconds. `intensity` and `sharpness` are 0.0..=1.0.
+///
+/// Returns `false` if no controller, no haptic support, or Core
+/// Haptics failed to start.
+#[must_use] 
+pub fn rumble_first_controller(intensity: f32, sharpness: f32, duration: f64) -> bool {
+    unsafe { ffi::gc_first_controller_rumble(intensity, sharpness, duration) }
+}

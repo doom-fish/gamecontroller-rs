@@ -69,4 +69,9 @@ extern "C" {
         user_info: *mut c_void,
     ) -> *mut c_void;
     pub fn gc_unregister_connection_callback(token: *mut c_void);
+
+    pub fn gc_first_controller_set_light(red: f32, green: f32, blue: f32) -> bool;
+    pub fn gc_first_controller_set_player_index(index: i32) -> bool;
+    pub fn gc_first_controller_battery_level() -> f32;
+    pub fn gc_first_controller_rumble(intensity: f32, sharpness: f32, duration: f64) -> bool;
 }
