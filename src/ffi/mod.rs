@@ -37,6 +37,24 @@ pub struct ControllerInfoRaw {
     pub dpad_right: f32,
 }
 
+#[repr(C)]
+pub struct ExtraInfoRaw {
+    pub has_motion: bool,
+    pub has_haptics: bool,
+    pub has_light: bool,
+    pub has_battery: bool,
+    pub battery_level: f32,
+    pub battery_state: i32,
+    pub gravity_x: f64,
+    pub gravity_y: f64,
+    pub gravity_z: f64,
+    pub user_acceleration_x: f64,
+    pub user_acceleration_y: f64,
+    pub user_acceleration_z: f64,
+}
+
+pub type ConnectionCallback = unsafe extern "C" fn(user_info: *mut c_void, connected: bool);
+
 extern "C" {
     pub fn gc_string_free(s: *mut c_char);
     pub fn gc_connected_controllers(
@@ -44,4 +62,11 @@ extern "C" {
         out_count: *mut usize,
     ) -> i32;
     pub fn gc_controller_infos_free(array: *mut c_void, count: usize);
+
+    pub fn gc_first_controller_extra(out_info: *mut ExtraInfoRaw) -> bool;
+    pub fn gc_register_connection_callback(
+        callback: ConnectionCallback,
+        user_info: *mut c_void,
+    ) -> *mut c_void;
+    pub fn gc_unregister_connection_callback(token: *mut c_void);
 }

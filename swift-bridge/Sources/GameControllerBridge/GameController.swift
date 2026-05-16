@@ -123,3 +123,123 @@ public func gc_controller_infos_free(_ array: UnsafeMutableRawPointer?, _ count:
     }
     typed.deallocate()
 }
+
+// MARK: - v0.2: motion / battery / light / haptics quick reads
+
+/// One-shot read of the first connected controller's optional services.
+@frozen
+public struct GCExtraInfoRaw {
+    public var has_motion: Bool
+    public var has_haptics: Bool
+    public var has_light: Bool
+    public var has_battery: Bool
+    /// Battery level in 0.0...1.0, or -1 if no battery.
+    public var battery_level: Float
+    /// 0 = unknown, 1 = discharging, 2 = charging, 3 = full.
+    public var battery_state: Int32
+    /// Motion gravity vector (x, y, z) in g-units, or 0 if no motion.
+    public var gravity_x: Double
+    public var gravity_y: Double
+    public var gravity_z: Double
+    public var user_acceleration_x: Double
+    public var user_acceleration_y: Double
+    public var user_acceleration_z: Double
+}
+
+@_cdecl("gc_first_controller_extra")
+public func gc_first_controller_extra(
+    _ outInfo: UnsafeMutableRawPointer
+) -> Bool {
+    guard let c = GCController.controllers().first else {
+        return false
+    }
+    var info = GCExtraInfoRaw(
+        has_motion: false, has_haptics: false, has_light: false, has_battery: false,
+        battery_level: -1, battery_state: 0,
+        gravity_x: 0, gravity_y: 0, gravity_z: 0,
+        user_acceleration_x: 0, user_acceleration_y: 0, user_acceleration_z: 0
+    )
+    if let m = c.motion {
+        info.has_motion = true
+        info.gravity_x = m.gravity.x
+        info.gravity_y = m.gravity.y
+        info.gravity_z = m.gravity.z
+        info.user_acceleration_x = m.userAcceleration.x
+        info.user_acceleration_y = m.userAcceleration.y
+        info.user_acceleration_z = m.userAcceleration.z
+    }
+    if #available(macOS 11.0, *) {
+        if c.haptics != nil { info.has_haptics = true }
+        if c.light != nil { info.has_light = true }
+        if let b = c.battery {
+            info.has_battery = true
+            info.battery_level = b.batteryLevel
+            switch b.batteryState {
+            case .unknown:     info.battery_state = 0
+            case .discharging: info.battery_state = 1
+            case .charging:    info.battery_state = 2
+            case .full:        info.battery_state = 3
+            @unknown default:  info.battery_state = 0
+            }
+        }
+    }
+    outInfo.assumingMemoryBound(to: GCExtraInfoRaw.self).pointee = info
+    return true
+}
+
+// MARK: - v0.2: connect/disconnect callbacks
+
+/// Callback the Rust side registers. Called when a controller is plugged
+/// in (`connected = true`) or unplugged (`connected = false`). The pointer
+/// passed is the same `userInfo` you registered the callback with.
+public typealias GCNotificationCallback = @convention(c) (UnsafeMutableRawPointer?, Bool) -> Void
+
+private final class NotifyState {
+    let callback: GCNotificationCallback
+    let userInfo: UnsafeMutableRawPointer?
+    var connectObserver: NSObjectProtocol?
+    var disconnectObserver: NSObjectProtocol?
+    init(callback: @escaping GCNotificationCallback, userInfo: UnsafeMutableRawPointer?) {
+        self.callback = callback
+        self.userInfo = userInfo
+    }
+}
+
+private var notifyStates: [UnsafeMutableRawPointer: NotifyState] = [:]
+
+@_cdecl("gc_register_connection_callback")
+public func gc_register_connection_callback(
+    _ callback: @escaping GCNotificationCallback,
+    _ userInfo: UnsafeMutableRawPointer?
+) -> UnsafeMutableRawPointer {
+    let state = NotifyState(callback: callback, userInfo: userInfo)
+    let nc = NotificationCenter.default
+    state.connectObserver = nc.addObserver(
+        forName: .GCControllerDidConnect,
+        object: nil,
+        queue: .main
+    ) { _ in
+        state.callback(state.userInfo, true)
+    }
+    state.disconnectObserver = nc.addObserver(
+        forName: .GCControllerDidDisconnect,
+        object: nil,
+        queue: .main
+    ) { _ in
+        state.callback(state.userInfo, false)
+    }
+    let key = Unmanaged.passRetained(state).toOpaque()
+    notifyStates[key] = state
+    return key
+}
+
+@_cdecl("gc_unregister_connection_callback")
+public func gc_unregister_connection_callback(_ token: UnsafeMutableRawPointer?) {
+    guard let token = token, let state = notifyStates.removeValue(forKey: token) else {
+        return
+    }
+    let nc = NotificationCenter.default
+    if let o = state.connectObserver { nc.removeObserver(o) }
+    if let o = state.disconnectObserver { nc.removeObserver(o) }
+    Unmanaged<NotifyState>.fromOpaque(token).release()
+}

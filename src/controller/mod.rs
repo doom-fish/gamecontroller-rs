@@ -127,3 +127,145 @@ fn take_string(p: *mut core::ffi::c_char) -> String {
     unsafe { ffi::gc_string_free(p) };
     s
 }
+
+// ---- v0.2: motion / battery / haptics / light snapshots ----
+
+/// Battery charging state mirroring `GCDeviceBattery.batteryState`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum BatteryState {
+    Unknown,
+    Discharging,
+    Charging,
+    Full,
+}
+
+/// Optional services available on a controller. Returned by [`first_controller_extras`].
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ControllerExtras {
+    pub has_motion: bool,
+    pub has_haptics: bool,
+    pub has_light: bool,
+    pub has_battery: bool,
+    /// `0.0..=1.0`, or `None` if no battery is exposed.
+    pub battery_level: Option<f32>,
+    pub battery_state: BatteryState,
+    /// Gravity vector (x, y, z) in g-units, or `None` if no motion.
+    pub gravity: Option<(f64, f64, f64)>,
+    /// User-acceleration vector (x, y, z) in g-units, or `None`.
+    pub user_acceleration: Option<(f64, f64, f64)>,
+}
+
+/// Snapshot the first connected controller's optional services
+/// (motion / battery / haptics / light), or `None` if no controller is
+/// connected.
+#[must_use]
+pub fn first_controller_extras() -> Option<ControllerExtras> {
+    let mut raw = ffi::ExtraInfoRaw {
+        has_motion: false,
+        has_haptics: false,
+        has_light: false,
+        has_battery: false,
+        battery_level: -1.0,
+        battery_state: 0,
+        gravity_x: 0.0,
+        gravity_y: 0.0,
+        gravity_z: 0.0,
+        user_acceleration_x: 0.0,
+        user_acceleration_y: 0.0,
+        user_acceleration_z: 0.0,
+    };
+    let ok = unsafe { ffi::gc_first_controller_extra(&mut raw) };
+    if !ok {
+        return None;
+    }
+    let battery_state = match raw.battery_state {
+        1 => BatteryState::Discharging,
+        2 => BatteryState::Charging,
+        3 => BatteryState::Full,
+        _ => BatteryState::Unknown,
+    };
+    Some(ControllerExtras {
+        has_motion: raw.has_motion,
+        has_haptics: raw.has_haptics,
+        has_light: raw.has_light,
+        has_battery: raw.has_battery,
+        battery_level: if raw.has_battery {
+            Some(raw.battery_level)
+        } else {
+            None
+        },
+        battery_state,
+        gravity: if raw.has_motion {
+            Some((raw.gravity_x, raw.gravity_y, raw.gravity_z))
+        } else {
+            None
+        },
+        user_acceleration: if raw.has_motion {
+            Some((
+                raw.user_acceleration_x,
+                raw.user_acceleration_y,
+                raw.user_acceleration_z,
+            ))
+        } else {
+            None
+        },
+    })
+}
+
+// ---- v0.2: connect/disconnect callbacks ----
+
+/// RAII guard for a registered connection-state callback. Drops the
+/// `NSNotificationCenter` observer on scope exit.
+pub struct ConnectionWatcher {
+    token: *mut core::ffi::c_void,
+    _callback: Box<dyn Fn(bool) + Send + Sync + 'static>,
+}
+
+unsafe impl Send for ConnectionWatcher {}
+unsafe impl Sync for ConnectionWatcher {}
+
+impl Drop for ConnectionWatcher {
+    fn drop(&mut self) {
+        if !self.token.is_null() {
+            unsafe { ffi::gc_unregister_connection_callback(self.token) };
+            self.token = core::ptr::null_mut();
+        }
+    }
+}
+
+unsafe extern "C" fn trampoline(
+    user_info: *mut core::ffi::c_void,
+    connected: bool,
+) {
+    let cb_ptr = user_info.cast::<Box<dyn Fn(bool) + Send + Sync + 'static>>();
+    if cb_ptr.is_null() {
+        return;
+    }
+    let cb = unsafe { &*cb_ptr };
+    cb(connected);
+}
+
+/// Register a closure that fires when any controller connects (`true`)
+/// or disconnects (`false`). The returned [`ConnectionWatcher`] guards
+/// the registration — drop it to stop receiving notifications.
+///
+/// Callbacks fire on the main run loop's queue, so make sure your app
+/// has an active run loop (`CFRunLoopRun`, `NSApplication.run`, or
+/// Carbon `RunApplicationEventLoop`).
+#[must_use]
+pub fn watch_connections<F>(callback: F) -> ConnectionWatcher
+where
+    F: Fn(bool) + Send + Sync + 'static,
+{
+    let boxed: Box<dyn Fn(bool) + Send + Sync + 'static> = Box::new(callback);
+    let raw_box = Box::into_raw(Box::new(boxed));
+    let token = unsafe {
+        ffi::gc_register_connection_callback(trampoline, raw_box.cast::<core::ffi::c_void>())
+    };
+    ConnectionWatcher {
+        token,
+        _callback: unsafe { Box::from_raw(raw_box) },
+    }
+}

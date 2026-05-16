@@ -15,12 +15,14 @@ pub mod controller;
 pub mod ffi;
 
 pub use controller::{
-    connected_controllers, Buttons, Controller, Dpad, Thumbsticks, Triggers,
+    connected_controllers, first_controller_extras, watch_connections, BatteryState,
+    Buttons, ConnectionWatcher, Controller, ControllerExtras, Dpad, Thumbsticks, Triggers,
 };
 
 /// Common imports.
 pub mod prelude {
     pub use crate::controller::{
-        connected_controllers, Buttons, Controller, Dpad, Thumbsticks, Triggers,
+        connected_controllers, first_controller_extras, watch_connections, BatteryState,
+        Buttons, ConnectionWatcher, Controller, ControllerExtras, Dpad, Thumbsticks, Triggers,
     };
 }
