@@ -326,3 +326,96 @@ public func gc_first_controller_rumble(
     return false
 }
 #endif
+
+// MARK: - Mouse + Keyboard + multi-controller iteration (v0.4)
+
+@_cdecl("gc_mouse_is_connected")
+public func gc_mouse_is_connected() -> Bool {
+    if #unavailable(macOS 11.0) { return false }
+    return GCMouse.current != nil
+}
+
+@_cdecl("gc_mouse_button_states")
+public func gc_mouse_button_states(
+    _ out_left: UnsafeMutablePointer<Bool>,
+    _ out_right: UnsafeMutablePointer<Bool>,
+    _ out_middle: UnsafeMutablePointer<Bool>
+) -> Bool {
+    if #unavailable(macOS 11.0) { return false }
+    guard let mouse = GCMouse.current, let input = mouse.mouseInput else { return false }
+    out_left.pointee = input.leftButton.isPressed
+    out_right.pointee = input.rightButton?.isPressed ?? false
+    out_middle.pointee = input.middleButton?.isPressed ?? false
+    return true
+}
+
+@_cdecl("gc_keyboard_is_connected")
+public func gc_keyboard_is_connected() -> Bool {
+    if #unavailable(macOS 11.0) { return false }
+    return GCKeyboard.coalesced != nil
+}
+
+@_cdecl("gc_keyboard_any_key_pressed")
+public func gc_keyboard_any_key_pressed() -> Bool {
+    if #unavailable(macOS 11.0) { return false }
+    guard let kb = GCKeyboard.coalesced, let input = kb.keyboardInput else { return false }
+    return input.isAnyKeyPressed
+}
+
+/// `keycode` is a `GCKeyCode.rawValue` (HID page-7 usage code).
+/// E.g. `4 = "a"`, `40 = enter`, `44 = space`.
+@_cdecl("gc_keyboard_is_key_pressed")
+public func gc_keyboard_is_key_pressed(_ keycode: Int) -> Bool {
+    if #unavailable(macOS 11.0) { return false }
+    guard let kb = GCKeyboard.coalesced, let input = kb.keyboardInput else { return false }
+    let code = GCKeyCode(rawValue: keycode)
+    return input.button(forKeyCode: code)?.isPressed ?? false
+}
+
+/// Snapshot extras for ALL connected controllers into an
+/// already-allocated buffer of `max` `GCExtraInfoRaw` slots. Returns
+/// the actual number written.
+@_cdecl("gc_all_controllers_extras")
+public func gc_all_controllers_extras(
+    _ out_buf: UnsafeMutableRawPointer,
+    _ max: Int
+) -> Int {
+    let controllers = GCController.controllers()
+    let n = min(controllers.count, max)
+    let typed = out_buf.assumingMemoryBound(to: GCExtraInfoRaw.self)
+    for i in 0..<n {
+        let c = controllers[i]
+        var info = GCExtraInfoRaw(
+            has_motion: false,
+            has_haptics: false,
+            has_light: false,
+            has_battery: false,
+            battery_level: -1.0,
+            battery_state: 0,
+            gravity_x: 0.0,
+            gravity_y: 0.0,
+            gravity_z: 0.0,
+            user_acceleration_x: 0.0,
+            user_acceleration_y: 0.0,
+            user_acceleration_z: 0.0
+        )
+        if let b = c.battery {
+            info.has_battery = true
+            info.battery_state = Int32(b.batteryState.rawValue)
+            info.battery_level = b.batteryLevel
+        }
+        if c.haptics != nil { info.has_haptics = true }
+        if c.light != nil { info.has_light = true }
+        if let m = c.motion {
+            info.has_motion = true
+            info.gravity_x = m.gravity.x
+            info.gravity_y = m.gravity.y
+            info.gravity_z = m.gravity.z
+            info.user_acceleration_x = m.userAcceleration.x
+            info.user_acceleration_y = m.userAcceleration.y
+            info.user_acceleration_z = m.userAcceleration.z
+        }
+        typed.advanced(by: i).initialize(to: info)
+    }
+    return n
+}

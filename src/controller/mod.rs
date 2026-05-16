@@ -162,7 +162,27 @@ pub struct ControllerExtras {
 /// connected.
 #[must_use]
 pub fn first_controller_extras() -> Option<ControllerExtras> {
-    let mut raw = ffi::ExtraInfoRaw {
+    let mut raw = empty_extras_raw();
+    let ok = unsafe { ffi::gc_first_controller_extra(&mut raw) };
+    if !ok {
+        return None;
+    }
+    Some(extras_from_raw(&raw))
+}
+
+/// Snapshot extras for ALL connected controllers (motion / battery /
+/// haptics / light per controller).
+#[must_use]
+pub fn all_controller_extras() -> Vec<ControllerExtras> {
+    const MAX: usize = 8;
+    let mut buf: Vec<ffi::ExtraInfoRaw> = (0..MAX).map(|_| empty_extras_raw()).collect();
+    let n = unsafe { ffi::gc_all_controllers_extras(buf.as_mut_ptr(), MAX) };
+    buf.truncate(n);
+    buf.iter().map(extras_from_raw).collect()
+}
+
+const fn empty_extras_raw() -> ffi::ExtraInfoRaw {
+    ffi::ExtraInfoRaw {
         has_motion: false,
         has_haptics: false,
         has_light: false,
@@ -175,18 +195,17 @@ pub fn first_controller_extras() -> Option<ControllerExtras> {
         user_acceleration_x: 0.0,
         user_acceleration_y: 0.0,
         user_acceleration_z: 0.0,
-    };
-    let ok = unsafe { ffi::gc_first_controller_extra(&mut raw) };
-    if !ok {
-        return None;
     }
+}
+
+const fn extras_from_raw(raw: &ffi::ExtraInfoRaw) -> ControllerExtras {
     let battery_state = match raw.battery_state {
         1 => BatteryState::Discharging,
         2 => BatteryState::Charging,
         3 => BatteryState::Full,
         _ => BatteryState::Unknown,
     };
-    Some(ControllerExtras {
+    ControllerExtras {
         has_motion: raw.has_motion,
         has_haptics: raw.has_haptics,
         has_light: raw.has_light,
@@ -211,7 +230,58 @@ pub fn first_controller_extras() -> Option<ControllerExtras> {
         } else {
             None
         },
+    }
+}
+
+/// True if a mouse is currently connected (macOS 11+).
+#[must_use]
+pub fn mouse_is_connected() -> bool {
+    unsafe { ffi::gc_mouse_is_connected() }
+}
+
+/// One-shot snapshot of the current mouse button states. Returns
+/// `None` if no mouse is connected.
+#[must_use]
+pub fn mouse_button_states() -> Option<MouseButtons> {
+    let mut l = false;
+    let mut r = false;
+    let mut m = false;
+    let ok = unsafe { ffi::gc_mouse_button_states(&mut l, &mut r, &mut m) };
+    if !ok {
+        return None;
+    }
+    Some(MouseButtons {
+        left: l,
+        right: r,
+        middle: m,
     })
+}
+
+/// True if a keyboard is currently connected (macOS 11+).
+#[must_use]
+pub fn keyboard_is_connected() -> bool {
+    unsafe { ffi::gc_keyboard_is_connected() }
+}
+
+/// True if ANY key is currently pressed on the coalesced keyboard.
+#[must_use]
+pub fn keyboard_any_key_pressed() -> bool {
+    unsafe { ffi::gc_keyboard_any_key_pressed() }
+}
+
+/// True if the HID-page-7 `keycode` is currently pressed
+/// (e.g. `4 = "a"`, `40 = enter`, `44 = space`).
+#[must_use]
+pub fn keyboard_is_key_pressed(keycode: isize) -> bool {
+    unsafe { ffi::gc_keyboard_is_key_pressed(keycode) }
+}
+
+/// Snapshot of the three primary mouse buttons.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MouseButtons {
+    pub left: bool,
+    pub right: bool,
+    pub middle: bool,
 }
 
 // ---- v0.2: connect/disconnect callbacks ----

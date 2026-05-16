@@ -74,4 +74,16 @@ extern "C" {
     pub fn gc_first_controller_set_player_index(index: i32) -> bool;
     pub fn gc_first_controller_battery_level() -> f32;
     pub fn gc_first_controller_rumble(intensity: f32, sharpness: f32, duration: f64) -> bool;
+
+    pub fn gc_mouse_is_connected() -> bool;
+    pub fn gc_mouse_button_states(
+        out_left: *mut bool,
+        out_right: *mut bool,
+        out_middle: *mut bool,
+    ) -> bool;
+    pub fn gc_keyboard_is_connected() -> bool;
+    pub fn gc_keyboard_any_key_pressed() -> bool;
+    pub fn gc_keyboard_is_key_pressed(keycode: isize) -> bool;
+
+    pub fn gc_all_controllers_extras(out_buf: *mut ExtraInfoRaw, max: usize) -> usize;
 }

@@ -15,18 +15,22 @@ pub mod controller;
 pub mod ffi;
 
 pub use controller::{
-    connected_controllers, first_controller_battery_level, first_controller_extras,
-    rumble_first_controller, set_first_controller_light, set_first_controller_player_index,
-    watch_connections, BatteryState, Buttons, ConnectionWatcher, Controller, ControllerExtras,
-    Dpad, Thumbsticks, Triggers,
+    all_controller_extras, connected_controllers, first_controller_battery_level,
+    first_controller_extras, keyboard_any_key_pressed, keyboard_is_connected,
+    keyboard_is_key_pressed, mouse_button_states, mouse_is_connected, rumble_first_controller,
+    set_first_controller_light, set_first_controller_player_index, watch_connections,
+    BatteryState, Buttons, ConnectionWatcher, Controller, ControllerExtras, Dpad, MouseButtons,
+    Thumbsticks, Triggers,
 };
 
 /// Common imports.
 pub mod prelude {
     pub use crate::controller::{
-        connected_controllers, first_controller_battery_level, first_controller_extras,
+        all_controller_extras, connected_controllers, first_controller_battery_level,
+        first_controller_extras, keyboard_any_key_pressed, keyboard_is_connected,
+        keyboard_is_key_pressed, mouse_button_states, mouse_is_connected,
         rumble_first_controller, set_first_controller_light, set_first_controller_player_index,
         watch_connections, BatteryState, Buttons, ConnectionWatcher, Controller,
-        ControllerExtras, Dpad, Thumbsticks, Triggers,
+        ControllerExtras, Dpad, MouseButtons, Thumbsticks, Triggers,
     };
 }
