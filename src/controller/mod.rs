@@ -375,3 +375,79 @@ pub fn first_controller_battery_level() -> f32 {
 pub fn rumble_first_controller(intensity: f32, sharpness: f32, duration: f64) -> bool {
     unsafe { ffi::gc_first_controller_rumble(intensity, sharpness, duration) }
 }
+
+/// Which `DualSense` trigger to address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DualSenseTrigger {
+    Left = 0,
+    Right = 1,
+}
+
+/// True if a `DualSense` controller is currently connected.
+#[must_use]
+pub fn dualsense_is_connected() -> bool {
+    unsafe { ffi::gc_dualsense_is_connected() }
+}
+
+/// Disable adaptive resistance/vibration on the requested `DualSense`
+/// trigger. Wraps `setModeOff`.
+#[must_use] 
+pub fn dualsense_trigger_off(which: DualSenseTrigger) -> bool {
+    unsafe { ffi::gc_dualsense_set_trigger_mode(which as i32, 0, 0.0, 0.0, 0.0, 0.0) }
+}
+
+/// Apply a resistive "feedback" mode on a `DualSense` trigger.
+/// `start_position` is `0.0..=1.0` (when resistance kicks in),
+/// `strength` is `0.0..=1.0`.
+#[must_use] 
+pub fn dualsense_trigger_feedback(
+    which: DualSenseTrigger,
+    start_position: f32,
+    strength: f32,
+) -> bool {
+    unsafe {
+        ffi::gc_dualsense_set_trigger_mode(which as i32, 1, start_position, 0.0, strength, 0.0)
+    }
+}
+
+/// Apply a "weapon" mode (resist, then snap) on a `DualSense` trigger.
+/// All inputs `0.0..=1.0`.
+#[must_use] 
+pub fn dualsense_trigger_weapon(
+    which: DualSenseTrigger,
+    start_position: f32,
+    end_position: f32,
+    strength: f32,
+) -> bool {
+    unsafe {
+        ffi::gc_dualsense_set_trigger_mode(
+            which as i32,
+            2,
+            start_position,
+            end_position,
+            strength,
+            0.0,
+        )
+    }
+}
+
+/// Apply a vibration mode on a `DualSense` trigger. `frequency` is in
+/// Hz (typically `1.0..=100.0`); `amplitude` is `0.0..=1.0`.
+#[must_use] 
+pub fn dualsense_trigger_vibration(
+    which: DualSenseTrigger,
+    start_position: f32,
+    amplitude: f32,
+    frequency: f32,
+) -> bool {
+    unsafe {
+        ffi::gc_dualsense_set_trigger_mode(
+            which as i32,
+            3,
+            start_position,
+            0.0,
+            amplitude,
+            frequency,
+        )
+    }
+}

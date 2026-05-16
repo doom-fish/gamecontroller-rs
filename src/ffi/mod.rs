@@ -86,4 +86,14 @@ extern "C" {
     pub fn gc_keyboard_is_key_pressed(keycode: isize) -> bool;
 
     pub fn gc_all_controllers_extras(out_buf: *mut ExtraInfoRaw, max: usize) -> usize;
+
+    pub fn gc_dualsense_is_connected() -> bool;
+    pub fn gc_dualsense_set_trigger_mode(
+        which: i32,
+        mode: i32,
+        start_position: f32,
+        end_position: f32,
+        strength: f32,
+        frequency: f32,
+    ) -> bool;
 }

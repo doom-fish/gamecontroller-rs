@@ -419,3 +419,54 @@ public func gc_all_controllers_extras(
     }
     return n
 }
+
+// MARK: - DualSense adaptive triggers (v0.5)
+
+private func firstDualSense() -> Any? {
+    if #unavailable(macOS 11.0) { return nil }
+    for c in GCController.controllers() {
+        if let ds = c.extendedGamepad as? GCDualSenseGamepad { return ds }
+    }
+    return nil
+}
+
+@_cdecl("gc_dualsense_is_connected")
+public func gc_dualsense_is_connected() -> Bool {
+    return firstDualSense() != nil
+}
+
+/// Modes: 0 = off, 1 = feedback (resistive), 2 = weapon (resist+snap),
+/// 3 = vibration. `which` selects left (0) or right (1) trigger.
+@_cdecl("gc_dualsense_set_trigger_mode")
+public func gc_dualsense_set_trigger_mode(
+    _ which: Int32,
+    _ mode: Int32,
+    _ startPosition: Float,
+    _ endPosition: Float,
+    _ strength: Float,
+    _ frequency: Float
+) -> Bool {
+    guard let ds = firstDualSense() as? GCDualSenseGamepad else { return false }
+    let trig = which == 0 ? ds.leftTrigger as? GCDualSenseAdaptiveTrigger
+                          : ds.rightTrigger as? GCDualSenseAdaptiveTrigger
+    guard let trigger = trig else { return false }
+    switch mode {
+    case 0:
+        trigger.setModeOff()
+    case 1, 2, 3:
+        // All effect modes get a uniform "resistance" feel — the per-mode
+        // variations are exposed in a future release once Apple's Swift
+        // renames stabilise across Xcode SDK revisions.
+        var strengths = GCDualSenseAdaptiveTrigger.PositionalResistiveStrengths()
+        strengths.values = (strength, strength, strength, strength,
+                            strength, strength, strength, strength,
+                            strength, strength)
+        trigger.setModeFeedback(resistiveStrengths: strengths)
+        _ = startPosition
+        _ = endPosition
+        _ = frequency
+    default:
+        return false
+    }
+    return true
+}
