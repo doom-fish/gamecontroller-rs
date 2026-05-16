@@ -198,3 +198,11 @@ public func gc_controller_details_json(_ currentOnly: Bool) -> UnsafeMutablePoin
     }
     return jsonString(controllers.map(controllerDetailsPayload))
 }
+
+@_cdecl("gc_current_controller_input_source_json")
+public func gc_current_controller_input_source_json() -> UnsafeMutablePointer<CChar>? {
+    if #available(macOS 14.0, *), let current = GCController.current {
+        return jsonString(Optional(controllerLiveInputSourcePayload(current.input)))
+    }
+    return jsonString(Optional<DevicePhysicalInputSourceDetailsPayload>.none)
+}

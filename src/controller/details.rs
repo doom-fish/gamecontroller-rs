@@ -89,6 +89,11 @@ pub struct DirectionPadInputState {
     pub right: ButtonInputState,
 }
 
+/// Typed cursor snapshot mirroring `GCDeviceCursor`.
+pub type DeviceCursorState = DirectionPadInputState;
+/// Apple-style alias for [`DeviceCursorState`].
+pub type GCDeviceCursor = DeviceCursorState;
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TouchpadDetails {
@@ -328,6 +333,56 @@ pub struct NamedDirectionPadElementState {
     pub value: DirectionPadInputState,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InputElementMetadata {
+    pub primary_alias: String,
+    pub aliases: Vec<String>,
+    pub localized_name: Option<String>,
+    pub sf_symbols_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DevicePhysicalInputElementChange {
+    Unknown,
+    NoChange,
+    Changed,
+}
+
+/// Apple-style alias for [`DevicePhysicalInputElementChange`].
+pub type GCDevicePhysicalInputElementChange = DevicePhysicalInputElementChange;
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevicePhysicalInputStateDiffDetails {
+    pub changed_elements_known: bool,
+    pub changed_aliases: Vec<String>,
+    pub changed_elements: Vec<InputElementMetadata>,
+}
+
+impl DevicePhysicalInputStateDiffDetails {
+    /// Mirror `GCDevicePhysicalInputStateDiff.changeForElement(_:)` using aliases.
+    #[must_use]
+    pub fn change_for_alias(&self, alias: &str) -> DevicePhysicalInputElementChange {
+        if !self.changed_elements_known {
+            return DevicePhysicalInputElementChange::Unknown;
+        }
+        if self
+            .changed_aliases
+            .iter()
+            .any(|candidate| candidate == alias)
+        {
+            DevicePhysicalInputElementChange::Changed
+        } else {
+            DevicePhysicalInputElementChange::NoChange
+        }
+    }
+}
+
+/// Apple-style alias for [`DevicePhysicalInputStateDiffDetails`].
+pub type GCDevicePhysicalInputStateDiff = DevicePhysicalInputStateDiffDetails;
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerInputStateDetails {
@@ -354,6 +409,27 @@ pub struct ControllerLiveInputDetails {
     pub unmapped: Option<ControllerInputStateDetails>,
     pub next: Option<ControllerInputStateDetails>,
 }
+
+/// Generic `GCDevicePhysicalInputState` view reusing the controller-input snapshot.
+pub type DevicePhysicalInputState = ControllerInputStateDetails;
+/// Apple-style alias for [`DevicePhysicalInputState`].
+pub type GCDevicePhysicalInputState = DevicePhysicalInputState;
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevicePhysicalInputSourceDetails {
+    pub input_state_queue_depth: isize,
+    pub live: DevicePhysicalInputState,
+    pub capture: DevicePhysicalInputState,
+    pub unmapped: Option<DevicePhysicalInputState>,
+    pub next: Option<DevicePhysicalInputState>,
+    pub next_diff: Option<DevicePhysicalInputStateDiffDetails>,
+}
+
+/// Generic `GCDevicePhysicalInput` view for the current controller input source.
+pub type DevicePhysicalInput = DevicePhysicalInputSourceDetails;
+/// Apple-style alias for [`DevicePhysicalInput`].
+pub type GCDevicePhysicalInput = DevicePhysicalInput;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -401,7 +477,7 @@ pub struct MouseSnapshot {
     pub product_category: String,
     pub is_current: bool,
     pub known_mouse_count: usize,
-    pub scroll: DirectionPadInputState,
+    pub scroll: DeviceCursorState,
     pub left_button: ButtonInputState,
     pub right_button: Option<ButtonInputState>,
     pub middle_button: Option<ButtonInputState>,
@@ -574,6 +650,18 @@ pub fn first_controller_haptics() -> Result<Option<DeviceHapticsDetails>, GameCo
 pub fn current_controller_input_snapshot(
 ) -> Result<Option<ControllerLiveInputDetails>, GameControllerError> {
     Ok(current_controller_details()?.and_then(|controller| controller.input))
+}
+
+/// Snapshot the current controller's `GCDevicePhysicalInput` source, including a
+/// direct live read, a captured snapshot, and the next queued diff if one is
+/// pending.
+///
+/// # Errors
+///
+/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
+pub fn current_controller_input_source(
+) -> Result<Option<DevicePhysicalInputSourceDetails>, GameControllerError> {
+    parse_json(unsafe { ffi::gc_current_controller_input_source_json() })
 }
 
 fn parse_json<T: DeserializeOwned>(ptr: *mut c_char) -> Result<T, GameControllerError> {

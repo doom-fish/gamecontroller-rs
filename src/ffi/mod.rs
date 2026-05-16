@@ -62,6 +62,7 @@ extern "C" {
     pub fn gc_connected_controllers(out_array: *mut *mut c_void, out_count: *mut usize) -> i32;
     pub fn gc_controller_infos_free(array: *mut c_void, count: usize);
     pub fn gc_controller_details_json(current_only: bool) -> *mut c_char;
+    pub fn gc_current_controller_input_source_json() -> *mut c_char;
 
     pub fn gc_first_controller_extra(out_info: *mut ExtraInfoRaw) -> bool;
     pub fn gc_register_connection_callback(

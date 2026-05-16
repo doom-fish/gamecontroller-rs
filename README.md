@@ -2,7 +2,7 @@
 
 Safe Rust bindings for Apple's [GameController](https://developer.apple.com/documentation/gamecontroller) framework on macOS.
 
-> **Status:** `0.7.0` keeps the crate snapshot-first while adding `GCController.input` / `GCControllerLiveInput` / `GCControllerInputState`, richer `GCKeyboard` / `GCMouse` snapshots, `GCDirectionalGamepad`, `GCDualShockGamepad`, `GCXboxGamepad`, `GCColor` / `GCDeviceLight`, `GCDeviceHaptics`, macOS `GCRacingWheel` snapshots, and `GCEventViewController` coverage.
+> **Status:** `0.7.1` keeps the crate snapshot-first while adding high-impact `GCKeyCode*` / `GCKey*` / `GCInput*` constants plus `GCDevicePhysicalInput` source/diff snapshots on top of the existing `GCController.input`, keyboard/mouse, racing-wheel, light, haptics, and event-controller coverage.
 
 ## Quick start
 
@@ -49,6 +49,8 @@ fn main() -> Result<(), GameControllerError> {
 - `connected_controllers()` for lightweight polling snapshots.
 - `connected_controller_details()` / `current_controller_snapshot()` for richer JSON-backed controller/profile snapshots.
 - `current_controller_input_snapshot()` for `GCController.input` / `GCControllerLiveInput` / `GCControllerInputState` capture data.
+- `current_controller_input_source()` for direct `GCDevicePhysicalInput` live/captured/queued-diff snapshots.
+- `key_codes`, `key_names`, and `input_names` modules for high-impact `GCKeyCode*`, `GCKey*`, and `GCInput*` constants.
 - `keyboard_snapshot()` / `mouse_snapshot()` for richer `GCKeyboard` / `GCMouse` snapshots.
 - `connected_racing_wheels()` for macOS-only `GCRacingWheel` metadata + captured input when already acquired.
 - `event_view_controller_snapshot()` for `GCEventViewController` defaults.
@@ -71,7 +73,7 @@ fn main() -> Result<(), GameControllerError> {
 
 - Wireless-discovery completion callbacks and connection notifications fire on the main run loop.
 - `gamepad` support is included for completeness even though Apple prefers `extendedGamepad`.
-- The crate remains snapshot-first. Callback-heavy setter APIs (`valueChangedHandler`, `keyChangedHandler`, `mouseMovedHandler`, buffered-input callbacks) and exclusive `GCRacingWheel` acquisition are intentionally left out of the safe Rust surface.
+- The crate remains snapshot-first. It exposes `GCDevicePhysicalInput` queue snapshots/diffs, but callback-heavy setter APIs (`valueChangedHandler`, `keyChangedHandler`, `mouseMovedHandler`, handler-queue mutation) and exclusive `GCRacingWheel` acquisition are intentionally left out of the safe Rust surface.
 - `GCRemote` is not present in the macOS SDK headers inspected for this release and is documented as skipped in [`COVERAGE.md`](COVERAGE.md).
 
 ## License

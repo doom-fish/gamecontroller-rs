@@ -94,6 +94,33 @@ func namedDirectionPadElementStatePayload(_ dpad: any GCDirectionPadElement) -> 
 }
 
 @available(macOS 14.0, *)
+func devicePhysicalInputStateDiffPayload(
+    _ changedElements: NSEnumerator?
+) -> DevicePhysicalInputStateDiffDetailsPayload {
+    guard let changedElements else {
+        return DevicePhysicalInputStateDiffDetailsPayload(
+            changedElementsKnown: false,
+            changedAliases: [],
+            changedElements: []
+        )
+    }
+
+    var changedAliasSet = Set<String>()
+    var changedElementPayloads: [InputElementMetadataPayload] = []
+    for case let element as any GCPhysicalInputElement in changedElements {
+        changedAliasSet.formUnion(element.aliases)
+        changedElementPayloads.append(inputElementMetadataPayload(element))
+    }
+    changedElementPayloads.sort { $0.primaryAlias < $1.primaryAlias }
+
+    return DevicePhysicalInputStateDiffDetailsPayload(
+        changedElementsKnown: true,
+        changedAliases: changedAliasSet.sorted(),
+        changedElements: changedElementPayloads
+    )
+}
+
+@available(macOS 14.0, *)
 func controllerInputStatePayload(
     _ state: GCControllerInputState,
     changedAliasesKnown: Bool = false,
@@ -145,28 +172,14 @@ func controllerLiveInputPayload(_ input: GCControllerLiveInput) -> ControllerLiv
     let live = controllerInputStatePayload(input.capture())
     let unmapped = input.unmapped.map { controllerInputStatePayload($0.capture()) }
 
-    let next: ControllerInputStateDetailsPayload?
-    if let nextState = input.nextInputState() {
-        let changedAliases: [String]
-        let changedAliasesKnown: Bool
-        if let changedElements = nextState.changedElements() {
-            var changedAliasSet = Set<String>()
-            for element in changedElements {
-                changedAliasSet.formUnion(element.aliases)
-            }
-            changedAliases = changedAliasSet.sorted()
-            changedAliasesKnown = true
-        } else {
-            changedAliases = []
-            changedAliasesKnown = false
-        }
-        next = controllerInputStatePayload(
-            nextState,
-            changedAliasesKnown: changedAliasesKnown,
-            changedAliases: changedAliases
+    let nextState = input.nextInputState()
+    let diff = devicePhysicalInputStateDiffPayload(nextState?.changedElements())
+    let next = nextState.map {
+        controllerInputStatePayload(
+            $0,
+            changedAliasesKnown: diff.changedElementsKnown,
+            changedAliases: diff.changedAliases
         )
-    } else {
-        next = nil
     }
 
     return ControllerLiveInputDetailsPayload(
@@ -174,6 +187,32 @@ func controllerLiveInputPayload(_ input: GCControllerLiveInput) -> ControllerLiv
         live: live,
         unmapped: unmapped,
         next: next
+    )
+}
+
+@available(macOS 14.0, *)
+func controllerLiveInputSourcePayload(_ input: GCControllerLiveInput) -> DevicePhysicalInputSourceDetailsPayload {
+    let live = controllerInputStatePayload(input)
+    let capture = controllerInputStatePayload(input.capture())
+    let unmapped = input.unmapped.map { controllerInputStatePayload($0.capture()) }
+
+    let nextState = input.nextInputState()
+    let nextDiff = nextState.map { devicePhysicalInputStateDiffPayload($0.changedElements()) }
+    let next = nextState.map {
+        controllerInputStatePayload(
+            $0,
+            changedAliasesKnown: nextDiff?.changedElementsKnown ?? false,
+            changedAliases: nextDiff?.changedAliases ?? []
+        )
+    }
+
+    return DevicePhysicalInputSourceDetailsPayload(
+        inputStateQueueDepth: input.inputStateQueueDepth,
+        live: live,
+        capture: capture,
+        unmapped: unmapped,
+        next: next,
+        nextDiff: nextDiff
     )
 }
 

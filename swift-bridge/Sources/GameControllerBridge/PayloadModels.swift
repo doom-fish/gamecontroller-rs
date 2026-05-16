@@ -194,6 +194,12 @@ struct InputElementMetadataPayload: Codable {
     let sfSymbolsName: String?
 }
 
+struct DevicePhysicalInputStateDiffDetailsPayload: Codable {
+    let changedElementsKnown: Bool
+    let changedAliases: [String]
+    let changedElements: [InputElementMetadataPayload]
+}
+
 struct AxisElementStatePayload: Codable {
     let absoluteValue: Float?
     let relativeDelta: Float
@@ -260,6 +266,15 @@ struct ControllerLiveInputDetailsPayload: Codable {
     let live: ControllerInputStateDetailsPayload
     let unmapped: ControllerInputStateDetailsPayload?
     let next: ControllerInputStateDetailsPayload?
+}
+
+struct DevicePhysicalInputSourceDetailsPayload: Codable {
+    let inputStateQueueDepth: Int
+    let live: ControllerInputStateDetailsPayload
+    let capture: ControllerInputStateDetailsPayload
+    let unmapped: ControllerInputStateDetailsPayload?
+    let next: ControllerInputStateDetailsPayload?
+    let nextDiff: DevicePhysicalInputStateDiffDetailsPayload?
 }
 
 struct ControllerDetailsPayload: Codable {

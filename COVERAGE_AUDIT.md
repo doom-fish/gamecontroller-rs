@@ -1,23 +1,25 @@
 # gamecontroller-rs coverage audit (vs MacOSX26.2.sdk)
 
 This audit compares the public macOS `GameController.framework` surface against the safe/public Rust API and Swift bridge in `gamecontroller-rs`. It filters out symbols unavailable on macOS and treats Apple-deprecated snapshot/profile APIs as exempt per the audit instructions.
-
 Filtered out 7 unavailable symbols (the visionOS-only `GCStylus` family plus spatial-stylus constants).
 
-The raw percentage is heavily dragged down by the SDK's large exported constant tables (`GCKey*`, `GCKeyCode*`, `GCInput*`, and product-category constants), which this crate does not currently mirror as typed Rust exports.
+v0.7.1 closes the large exported constant tables (`GCKeyCode*`, `GCKey*`, and `GCInput*`) and adds standalone `GCDevicePhysicalInput` source/diff wrappers.
+Remaining gaps are now concentrated in notifications, generic remapping/source metadata, product-category constants, haptics locality constants, and controller-element/system-gesture APIs.
 
 SDK_PUBLIC_SYMBOLS: 444
-VERIFIED: 51
-GAPS: 375
+VERIFIED: 377
+GAPS: 49
 EXEMPT: 18
-COVERAGE_PCT: 11.97%
+COVERAGE_PCT: 88.50%
 
 ## 🟢 VERIFIED
 | Symbol | Kind | Header | Wrapped by |
 | --- | --- | --- | --- |
 | GCAcceleration | typedef struct | GCMotion.h | ControllerExtras.gravity/user_acceleration; MotionDetails.gravity/user_acceleration/acceleration |
 | GCAxisElement | protocol | GCAxisElement.h | NamedAxisElementState; AxisElementState |
+| GCAxisElementName | typedef | GCInputNames.h | GCAxisElementName / GCInputAxisName aliases; input_names::STEERING_WHEEL |
 | GCButtonElement | protocol | GCButtonElement.h | NamedButtonElementState; ButtonInputState |
+| GCButtonElementName | typedef | GCInputNames.h | GCButtonElementName / GCInputButtonName aliases; input_names::BUTTON_A |
 | GCColor | interface | GCColor.h | Color; DeviceLightDetails.color; set_first_controller_light_color() |
 | GCController | interface | GCController.h | Controller; connected_controllers(); connected_controller_details(); current_controller_snapshot(); watch_connections(); start_wireless_controller_discovery() |
 | GCControllerAxisInput | interface | GCControllerAxisInput.h | AxisInputState; PhysicalInputProfileDetails.axes |
@@ -31,9 +33,15 @@ COVERAGE_PCT: 11.97%
 | GCControllerTouchpad | interface | GCControllerTouchpad.h | TouchpadDetails; PhysicalInputProfileDetails.touchpads |
 | GCDeviceBattery | interface | GCDeviceBattery.h | BatteryState; ControllerExtras; BatteryInfo; first_controller_battery(); first_controller_battery_level() |
 | GCDeviceBatteryState | typedef enum | GCDeviceBattery.h | BatteryState; BatteryInfo.state; ControllerExtras.battery_state |
+| GCDeviceCursor | interface | GCDeviceCursor.h | DeviceCursorState; MouseSnapshot.scroll |
 | GCDeviceHaptics | interface | GCDeviceHaptics.h | DeviceHapticsDetails; first_controller_haptics(); rumble_first_controller() |
 | GCDeviceLight | interface | GCDeviceLight.h | DeviceLightDetails; first_controller_light(); set_first_controller_light(); set_first_controller_light_color() |
+| GCDevicePhysicalInput | protocol | GCDevicePhysicalInput.h | DevicePhysicalInputSourceDetails; current_controller_input_source() |
+| GCDevicePhysicalInputElementChange | typedef enum | GCDevicePhysicalInputStateDiff.h | DevicePhysicalInputElementChange; DevicePhysicalInputStateDiffDetails::change_for_alias() |
+| GCDevicePhysicalInputState | protocol | GCDevicePhysicalInputState.h | DevicePhysicalInputState alias; DevicePhysicalInputSourceDetails.live/capture/next |
+| GCDevicePhysicalInputStateDiff | protocol | GCDevicePhysicalInputStateDiff.h | DevicePhysicalInputStateDiffDetails; current_controller_input_source() |
 | GCDirectionPadElement | protocol | GCDirectionPadElement.h | NamedDirectionPadElementState; DirectionPadInputState |
+| GCDirectionPadElementName | typedef | GCInputNames.h | GCDirectionPadElementName / GCInputDirectionPadName aliases; input_names::DIRECTION_PAD |
 | GCDirectionalGamepad | interface | GCDirectionalGamepad.h | DirectionalGamepadDetails; ControllerDetails.directional_gamepad |
 | GCDualSenseAdaptiveTrigger | interface | GCDualSenseAdaptiveTrigger.h | dualsense_trigger_*(); DualSenseAdaptiveTriggerState; DualSenseGamepadDetails.left_trigger/right_trigger |
 | GCDualSenseAdaptiveTriggerMode | typedef enum | GCDualSenseAdaptiveTrigger.h | DualSenseTriggerMode |
@@ -43,7 +51,323 @@ COVERAGE_PCT: 11.97%
 | GCEventViewController | interface | GCEventViewController.h | event_view_controller_snapshot(); EventViewControllerDetails |
 | GCExtendedGamepad | interface | GCExtendedGamepad.h | Controller; ExtendedGamepadDetails; ControllerDetails.extended_gamepad |
 | GCGearShifterElement | interface | GCGearShifterElement.h | GearShifterDetails; RacingWheelInputDetails.shifter |
+| GCInputArcadeButtonName | function | GCInputNames.h | input_names::arcade_button_name() |
+| GCInputBackLeftButton | function | GCInputNames.h | input_names::back_left_button() |
+| GCInputBackRightButton | function | GCInputNames.h | input_names::back_right_button() |
+| GCInputButtonA | constant | GCInputNames.h | input_names::BUTTON_A |
+| GCInputButtonB | constant | GCInputNames.h | input_names::BUTTON_B |
+| GCInputButtonHome | constant | GCInputNames.h | input_names::BUTTON_HOME |
+| GCInputButtonMenu | constant | GCInputNames.h | input_names::BUTTON_MENU |
+| GCInputButtonOptions | constant | GCInputNames.h | input_names::BUTTON_OPTIONS |
+| GCInputButtonShare | constant | GCInputNames.h | input_names::BUTTON_SHARE |
+| GCInputButtonX | constant | GCInputNames.h | input_names::BUTTON_X |
+| GCInputButtonY | constant | GCInputNames.h | input_names::BUTTON_Y |
+| GCInputDirectionPad | constant | GCInputNames.h | input_names::DIRECTION_PAD |
+| GCInputDirectionalCardinalDpad | constant | GCDirectionalGamepad.h | input_names::DIRECTIONAL_CARDINAL_DPAD |
+| GCInputDirectionalCenterButton | constant | GCDirectionalGamepad.h | input_names::DIRECTIONAL_CENTER_BUTTON |
+| GCInputDirectionalDpad | constant | GCDirectionalGamepad.h | input_names::DIRECTIONAL_DPAD |
+| GCInputDirectionalTouchSurfaceButton | constant | GCDirectionalGamepad.h | input_names::DIRECTIONAL_TOUCH_SURFACE_BUTTON |
+| GCInputDualShockTouchpadButton | constant | GCInputNames.h | input_names::DUAL_SHOCK_TOUCHPAD_BUTTON |
+| GCInputDualShockTouchpadOne | constant | GCInputNames.h | input_names::DUAL_SHOCK_TOUCHPAD_ONE |
+| GCInputDualShockTouchpadTwo | constant | GCInputNames.h | input_names::DUAL_SHOCK_TOUCHPAD_TWO |
+| GCInputGripButton | constant | GCInputNames.h | input_names::GRIP_BUTTON |
+| GCInputLeftBumper | constant | GCInputNames.h | input_names::LEFT_BUMPER |
+| GCInputLeftPaddle | constant | GCInputNames.h | input_names::LEFT_PADDLE |
+| GCInputLeftShoulder | constant | GCInputNames.h | input_names::LEFT_SHOULDER |
+| GCInputLeftThumbstick | constant | GCInputNames.h | input_names::LEFT_THUMBSTICK |
+| GCInputLeftThumbstickButton | constant | GCInputNames.h | input_names::LEFT_THUMBSTICK_BUTTON |
+| GCInputLeftTrigger | constant | GCInputNames.h | input_names::LEFT_TRIGGER |
+| GCInputMicroGamepadButtonA | constant | GCMicroGamepad.h | input_names::MICRO_GAMEPAD_BUTTON_A |
+| GCInputMicroGamepadButtonMenu | constant | GCMicroGamepad.h | input_names::MICRO_GAMEPAD_BUTTON_MENU |
+| GCInputMicroGamepadButtonX | constant | GCMicroGamepad.h | input_names::MICRO_GAMEPAD_BUTTON_X |
+| GCInputMicroGamepadDpad | constant | GCMicroGamepad.h | input_names::MICRO_GAMEPAD_DPAD |
+| GCInputPedalAccelerator | constant | GCInputNames.h | input_names::PEDAL_ACCELERATOR |
+| GCInputPedalBrake | constant | GCInputNames.h | input_names::PEDAL_BRAKE |
+| GCInputPedalClutch | constant | GCInputNames.h | input_names::PEDAL_CLUTCH |
+| GCInputRightBumper | constant | GCInputNames.h | input_names::RIGHT_BUMPER |
+| GCInputRightPaddle | constant | GCInputNames.h | input_names::RIGHT_PADDLE |
+| GCInputRightShoulder | constant | GCInputNames.h | input_names::RIGHT_SHOULDER |
+| GCInputRightThumbstick | constant | GCInputNames.h | input_names::RIGHT_THUMBSTICK |
+| GCInputRightThumbstickButton | constant | GCInputNames.h | input_names::RIGHT_THUMBSTICK_BUTTON |
+| GCInputRightTrigger | constant | GCInputNames.h | input_names::RIGHT_TRIGGER |
+| GCInputShifter | constant | GCInputNames.h | input_names::SHIFTER |
+| GCInputSteeringWheel | constant | GCInputNames.h | input_names::STEERING_WHEEL |
+| GCInputThumbstick | constant | GCInputNames.h | input_names::THUMBSTICK |
+| GCInputThumbstickButton | constant | GCInputNames.h | input_names::THUMBSTICK_BUTTON |
+| GCInputTrigger | constant | GCInputNames.h | input_names::TRIGGER |
+| GCInputXboxPaddleFour | constant | GCInputNames.h | input_names::XBOX_PADDLE_FOUR |
+| GCInputXboxPaddleOne | constant | GCInputNames.h | input_names::XBOX_PADDLE_ONE |
+| GCInputXboxPaddleThree | constant | GCInputNames.h | input_names::XBOX_PADDLE_THREE |
+| GCInputXboxPaddleTwo | constant | GCInputNames.h | input_names::XBOX_PADDLE_TWO |
+| GCKeyA | constant | GCKeyNames.h | key_names::A |
+| GCKeyApplication | constant | GCKeyNames.h | key_names::APPLICATION |
+| GCKeyB | constant | GCKeyNames.h | key_names::B |
+| GCKeyBackslash | constant | GCKeyNames.h | key_names::BACKSLASH |
+| GCKeyC | constant | GCKeyNames.h | key_names::C |
+| GCKeyCapsLock | constant | GCKeyNames.h | key_names::CAPS_LOCK |
+| GCKeyCloseBracket | constant | GCKeyNames.h | key_names::CLOSE_BRACKET |
 | GCKeyCode | typedef | GCKeyCodes.h | keyboard_is_key_pressed() |
+| GCKeyCodeApplication | constant | GCKeyCodes.h | key_codes::APPLICATION |
+| GCKeyCodeBackslash | constant | GCKeyCodes.h | key_codes::BACKSLASH |
+| GCKeyCodeCapsLock | constant | GCKeyCodes.h | key_codes::CAPS_LOCK |
+| GCKeyCodeCloseBracket | constant | GCKeyCodes.h | key_codes::CLOSE_BRACKET |
+| GCKeyCodeComma | constant | GCKeyCodes.h | key_codes::COMMA |
+| GCKeyCodeDeleteForward | constant | GCKeyCodes.h | key_codes::DELETE_FORWARD |
+| GCKeyCodeDeleteOrBackspace | constant | GCKeyCodes.h | key_codes::DELETE_OR_BACKSPACE |
+| GCKeyCodeDownArrow | constant | GCKeyCodes.h | key_codes::DOWN_ARROW |
+| GCKeyCodeEight | constant | GCKeyCodes.h | key_codes::EIGHT |
+| GCKeyCodeEnd | constant | GCKeyCodes.h | key_codes::END |
+| GCKeyCodeEqualSign | constant | GCKeyCodes.h | key_codes::EQUAL_SIGN |
+| GCKeyCodeEscape | constant | GCKeyCodes.h | key_codes::ESCAPE |
+| GCKeyCodeF1 | constant | GCKeyCodes.h | key_codes::F_1 |
+| GCKeyCodeF10 | constant | GCKeyCodes.h | key_codes::F_10 |
+| GCKeyCodeF11 | constant | GCKeyCodes.h | key_codes::F_11 |
+| GCKeyCodeF12 | constant | GCKeyCodes.h | key_codes::F_12 |
+| GCKeyCodeF13 | constant | GCKeyCodes.h | key_codes::F_13 |
+| GCKeyCodeF14 | constant | GCKeyCodes.h | key_codes::F_14 |
+| GCKeyCodeF15 | constant | GCKeyCodes.h | key_codes::F_15 |
+| GCKeyCodeF16 | constant | GCKeyCodes.h | key_codes::F_16 |
+| GCKeyCodeF17 | constant | GCKeyCodes.h | key_codes::F_17 |
+| GCKeyCodeF18 | constant | GCKeyCodes.h | key_codes::F_18 |
+| GCKeyCodeF19 | constant | GCKeyCodes.h | key_codes::F_19 |
+| GCKeyCodeF2 | constant | GCKeyCodes.h | key_codes::F_2 |
+| GCKeyCodeF20 | constant | GCKeyCodes.h | key_codes::F_20 |
+| GCKeyCodeF3 | constant | GCKeyCodes.h | key_codes::F_3 |
+| GCKeyCodeF4 | constant | GCKeyCodes.h | key_codes::F_4 |
+| GCKeyCodeF5 | constant | GCKeyCodes.h | key_codes::F_5 |
+| GCKeyCodeF6 | constant | GCKeyCodes.h | key_codes::F_6 |
+| GCKeyCodeF7 | constant | GCKeyCodes.h | key_codes::F_7 |
+| GCKeyCodeF8 | constant | GCKeyCodes.h | key_codes::F_8 |
+| GCKeyCodeF9 | constant | GCKeyCodes.h | key_codes::F_9 |
+| GCKeyCodeFive | constant | GCKeyCodes.h | key_codes::FIVE |
+| GCKeyCodeFour | constant | GCKeyCodes.h | key_codes::FOUR |
+| GCKeyCodeGraveAccentAndTilde | constant | GCKeyCodes.h | key_codes::GRAVE_ACCENT_AND_TILDE |
+| GCKeyCodeHome | constant | GCKeyCodes.h | key_codes::HOME |
+| GCKeyCodeHyphen | constant | GCKeyCodes.h | key_codes::HYPHEN |
+| GCKeyCodeInsert | constant | GCKeyCodes.h | key_codes::INSERT |
+| GCKeyCodeInternational1 | constant | GCKeyCodes.h | key_codes::INTERNATIONAL_1 |
+| GCKeyCodeInternational2 | constant | GCKeyCodes.h | key_codes::INTERNATIONAL_2 |
+| GCKeyCodeInternational3 | constant | GCKeyCodes.h | key_codes::INTERNATIONAL_3 |
+| GCKeyCodeInternational4 | constant | GCKeyCodes.h | key_codes::INTERNATIONAL_4 |
+| GCKeyCodeInternational5 | constant | GCKeyCodes.h | key_codes::INTERNATIONAL_5 |
+| GCKeyCodeInternational6 | constant | GCKeyCodes.h | key_codes::INTERNATIONAL_6 |
+| GCKeyCodeInternational7 | constant | GCKeyCodes.h | key_codes::INTERNATIONAL_7 |
+| GCKeyCodeInternational8 | constant | GCKeyCodes.h | key_codes::INTERNATIONAL_8 |
+| GCKeyCodeInternational9 | constant | GCKeyCodes.h | key_codes::INTERNATIONAL_9 |
+| GCKeyCodeKeyA | constant | GCKeyCodes.h | key_codes::KEY_A |
+| GCKeyCodeKeyB | constant | GCKeyCodes.h | key_codes::KEY_B |
+| GCKeyCodeKeyC | constant | GCKeyCodes.h | key_codes::KEY_C |
+| GCKeyCodeKeyD | constant | GCKeyCodes.h | key_codes::KEY_D |
+| GCKeyCodeKeyE | constant | GCKeyCodes.h | key_codes::KEY_E |
+| GCKeyCodeKeyF | constant | GCKeyCodes.h | key_codes::KEY_F |
+| GCKeyCodeKeyG | constant | GCKeyCodes.h | key_codes::KEY_G |
+| GCKeyCodeKeyH | constant | GCKeyCodes.h | key_codes::KEY_H |
+| GCKeyCodeKeyI | constant | GCKeyCodes.h | key_codes::KEY_I |
+| GCKeyCodeKeyJ | constant | GCKeyCodes.h | key_codes::KEY_J |
+| GCKeyCodeKeyK | constant | GCKeyCodes.h | key_codes::KEY_K |
+| GCKeyCodeKeyL | constant | GCKeyCodes.h | key_codes::KEY_L |
+| GCKeyCodeKeyM | constant | GCKeyCodes.h | key_codes::KEY_M |
+| GCKeyCodeKeyN | constant | GCKeyCodes.h | key_codes::KEY_N |
+| GCKeyCodeKeyO | constant | GCKeyCodes.h | key_codes::KEY_O |
+| GCKeyCodeKeyP | constant | GCKeyCodes.h | key_codes::KEY_P |
+| GCKeyCodeKeyQ | constant | GCKeyCodes.h | key_codes::KEY_Q |
+| GCKeyCodeKeyR | constant | GCKeyCodes.h | key_codes::KEY_R |
+| GCKeyCodeKeyS | constant | GCKeyCodes.h | key_codes::KEY_S |
+| GCKeyCodeKeyT | constant | GCKeyCodes.h | key_codes::KEY_T |
+| GCKeyCodeKeyU | constant | GCKeyCodes.h | key_codes::KEY_U |
+| GCKeyCodeKeyV | constant | GCKeyCodes.h | key_codes::KEY_V |
+| GCKeyCodeKeyW | constant | GCKeyCodes.h | key_codes::KEY_W |
+| GCKeyCodeKeyX | constant | GCKeyCodes.h | key_codes::KEY_X |
+| GCKeyCodeKeyY | constant | GCKeyCodes.h | key_codes::KEY_Y |
+| GCKeyCodeKeyZ | constant | GCKeyCodes.h | key_codes::KEY_Z |
+| GCKeyCodeKeypad0 | constant | GCKeyCodes.h | key_codes::KEYPAD_0 |
+| GCKeyCodeKeypad1 | constant | GCKeyCodes.h | key_codes::KEYPAD_1 |
+| GCKeyCodeKeypad2 | constant | GCKeyCodes.h | key_codes::KEYPAD_2 |
+| GCKeyCodeKeypad3 | constant | GCKeyCodes.h | key_codes::KEYPAD_3 |
+| GCKeyCodeKeypad4 | constant | GCKeyCodes.h | key_codes::KEYPAD_4 |
+| GCKeyCodeKeypad5 | constant | GCKeyCodes.h | key_codes::KEYPAD_5 |
+| GCKeyCodeKeypad6 | constant | GCKeyCodes.h | key_codes::KEYPAD_6 |
+| GCKeyCodeKeypad7 | constant | GCKeyCodes.h | key_codes::KEYPAD_7 |
+| GCKeyCodeKeypad8 | constant | GCKeyCodes.h | key_codes::KEYPAD_8 |
+| GCKeyCodeKeypad9 | constant | GCKeyCodes.h | key_codes::KEYPAD_9 |
+| GCKeyCodeKeypadAsterisk | constant | GCKeyCodes.h | key_codes::KEYPAD_ASTERISK |
+| GCKeyCodeKeypadEnter | constant | GCKeyCodes.h | key_codes::KEYPAD_ENTER |
+| GCKeyCodeKeypadEqualSign | constant | GCKeyCodes.h | key_codes::KEYPAD_EQUAL_SIGN |
+| GCKeyCodeKeypadHyphen | constant | GCKeyCodes.h | key_codes::KEYPAD_HYPHEN |
+| GCKeyCodeKeypadNumLock | constant | GCKeyCodes.h | key_codes::KEYPAD_NUM_LOCK |
+| GCKeyCodeKeypadPeriod | constant | GCKeyCodes.h | key_codes::KEYPAD_PERIOD |
+| GCKeyCodeKeypadPlus | constant | GCKeyCodes.h | key_codes::KEYPAD_PLUS |
+| GCKeyCodeKeypadSlash | constant | GCKeyCodes.h | key_codes::KEYPAD_SLASH |
+| GCKeyCodeLANG1 | constant | GCKeyCodes.h | key_codes::LANG_1 |
+| GCKeyCodeLANG2 | constant | GCKeyCodes.h | key_codes::LANG_2 |
+| GCKeyCodeLANG3 | constant | GCKeyCodes.h | key_codes::LANG_3 |
+| GCKeyCodeLANG4 | constant | GCKeyCodes.h | key_codes::LANG_4 |
+| GCKeyCodeLANG5 | constant | GCKeyCodes.h | key_codes::LANG_5 |
+| GCKeyCodeLANG6 | constant | GCKeyCodes.h | key_codes::LANG_6 |
+| GCKeyCodeLANG7 | constant | GCKeyCodes.h | key_codes::LANG_7 |
+| GCKeyCodeLANG8 | constant | GCKeyCodes.h | key_codes::LANG_8 |
+| GCKeyCodeLANG9 | constant | GCKeyCodes.h | key_codes::LANG_9 |
+| GCKeyCodeLeftAlt | constant | GCKeyCodes.h | key_codes::LEFT_ALT |
+| GCKeyCodeLeftArrow | constant | GCKeyCodes.h | key_codes::LEFT_ARROW |
+| GCKeyCodeLeftControl | constant | GCKeyCodes.h | key_codes::LEFT_CONTROL |
+| GCKeyCodeLeftGUI | constant | GCKeyCodes.h | key_codes::LEFT_GUI |
+| GCKeyCodeLeftShift | constant | GCKeyCodes.h | key_codes::LEFT_SHIFT |
+| GCKeyCodeNine | constant | GCKeyCodes.h | key_codes::NINE |
+| GCKeyCodeNonUSBackslash | constant | GCKeyCodes.h | key_codes::NON_US_BACKSLASH |
+| GCKeyCodeNonUSPound | constant | GCKeyCodes.h | key_codes::NON_US_POUND |
+| GCKeyCodeOne | constant | GCKeyCodes.h | key_codes::ONE |
+| GCKeyCodeOpenBracket | constant | GCKeyCodes.h | key_codes::OPEN_BRACKET |
+| GCKeyCodePageDown | constant | GCKeyCodes.h | key_codes::PAGE_DOWN |
+| GCKeyCodePageUp | constant | GCKeyCodes.h | key_codes::PAGE_UP |
+| GCKeyCodePause | constant | GCKeyCodes.h | key_codes::PAUSE |
+| GCKeyCodePeriod | constant | GCKeyCodes.h | key_codes::PERIOD |
+| GCKeyCodePower | constant | GCKeyCodes.h | key_codes::POWER |
+| GCKeyCodePrintScreen | constant | GCKeyCodes.h | key_codes::PRINT_SCREEN |
+| GCKeyCodeQuote | constant | GCKeyCodes.h | key_codes::QUOTE |
+| GCKeyCodeReturnOrEnter | constant | GCKeyCodes.h | key_codes::RETURN_OR_ENTER |
+| GCKeyCodeRightAlt | constant | GCKeyCodes.h | key_codes::RIGHT_ALT |
+| GCKeyCodeRightArrow | constant | GCKeyCodes.h | key_codes::RIGHT_ARROW |
+| GCKeyCodeRightControl | constant | GCKeyCodes.h | key_codes::RIGHT_CONTROL |
+| GCKeyCodeRightGUI | constant | GCKeyCodes.h | key_codes::RIGHT_GUI |
+| GCKeyCodeRightShift | constant | GCKeyCodes.h | key_codes::RIGHT_SHIFT |
+| GCKeyCodeScrollLock | constant | GCKeyCodes.h | key_codes::SCROLL_LOCK |
+| GCKeyCodeSemicolon | constant | GCKeyCodes.h | key_codes::SEMICOLON |
+| GCKeyCodeSeven | constant | GCKeyCodes.h | key_codes::SEVEN |
+| GCKeyCodeSix | constant | GCKeyCodes.h | key_codes::SIX |
+| GCKeyCodeSlash | constant | GCKeyCodes.h | key_codes::SLASH |
+| GCKeyCodeSpacebar | constant | GCKeyCodes.h | key_codes::SPACEBAR |
+| GCKeyCodeTab | constant | GCKeyCodes.h | key_codes::TAB |
+| GCKeyCodeThree | constant | GCKeyCodes.h | key_codes::THREE |
+| GCKeyCodeTwo | constant | GCKeyCodes.h | key_codes::TWO |
+| GCKeyCodeUpArrow | constant | GCKeyCodes.h | key_codes::UP_ARROW |
+| GCKeyCodeZero | constant | GCKeyCodes.h | key_codes::ZERO |
+| GCKeyComma | constant | GCKeyNames.h | key_names::COMMA |
+| GCKeyD | constant | GCKeyNames.h | key_names::D |
+| GCKeyDeleteForward | constant | GCKeyNames.h | key_names::DELETE_FORWARD |
+| GCKeyDeleteOrBackspace | constant | GCKeyNames.h | key_names::DELETE_OR_BACKSPACE |
+| GCKeyDownArrow | constant | GCKeyNames.h | key_names::DOWN_ARROW |
+| GCKeyE | constant | GCKeyNames.h | key_names::E |
+| GCKeyEight | constant | GCKeyNames.h | key_names::EIGHT |
+| GCKeyEnd | constant | GCKeyNames.h | key_names::END |
+| GCKeyEqualSign | constant | GCKeyNames.h | key_names::EQUAL_SIGN |
+| GCKeyEscape | constant | GCKeyNames.h | key_names::ESCAPE |
+| GCKeyF | constant | GCKeyNames.h | key_names::F |
+| GCKeyF1 | constant | GCKeyNames.h | key_names::F_1 |
+| GCKeyF10 | constant | GCKeyNames.h | key_names::F_10 |
+| GCKeyF11 | constant | GCKeyNames.h | key_names::F_11 |
+| GCKeyF12 | constant | GCKeyNames.h | key_names::F_12 |
+| GCKeyF13 | constant | GCKeyNames.h | key_names::F_13 |
+| GCKeyF14 | constant | GCKeyNames.h | key_names::F_14 |
+| GCKeyF15 | constant | GCKeyNames.h | key_names::F_15 |
+| GCKeyF16 | constant | GCKeyNames.h | key_names::F_16 |
+| GCKeyF17 | constant | GCKeyNames.h | key_names::F_17 |
+| GCKeyF18 | constant | GCKeyNames.h | key_names::F_18 |
+| GCKeyF19 | constant | GCKeyNames.h | key_names::F_19 |
+| GCKeyF2 | constant | GCKeyNames.h | key_names::F_2 |
+| GCKeyF20 | constant | GCKeyNames.h | key_names::F_20 |
+| GCKeyF3 | constant | GCKeyNames.h | key_names::F_3 |
+| GCKeyF4 | constant | GCKeyNames.h | key_names::F_4 |
+| GCKeyF5 | constant | GCKeyNames.h | key_names::F_5 |
+| GCKeyF6 | constant | GCKeyNames.h | key_names::F_6 |
+| GCKeyF7 | constant | GCKeyNames.h | key_names::F_7 |
+| GCKeyF8 | constant | GCKeyNames.h | key_names::F_8 |
+| GCKeyF9 | constant | GCKeyNames.h | key_names::F_9 |
+| GCKeyFive | constant | GCKeyNames.h | key_names::FIVE |
+| GCKeyFour | constant | GCKeyNames.h | key_names::FOUR |
+| GCKeyG | constant | GCKeyNames.h | key_names::G |
+| GCKeyGraveAccentAndTilde | constant | GCKeyNames.h | key_names::GRAVE_ACCENT_AND_TILDE |
+| GCKeyH | constant | GCKeyNames.h | key_names::H |
+| GCKeyHome | constant | GCKeyNames.h | key_names::HOME |
+| GCKeyHyphen | constant | GCKeyNames.h | key_names::HYPHEN |
+| GCKeyI | constant | GCKeyNames.h | key_names::I |
+| GCKeyInsert | constant | GCKeyNames.h | key_names::INSERT |
+| GCKeyInternational1 | constant | GCKeyNames.h | key_names::INTERNATIONAL_1 |
+| GCKeyInternational2 | constant | GCKeyNames.h | key_names::INTERNATIONAL_2 |
+| GCKeyInternational3 | constant | GCKeyNames.h | key_names::INTERNATIONAL_3 |
+| GCKeyInternational4 | constant | GCKeyNames.h | key_names::INTERNATIONAL_4 |
+| GCKeyInternational5 | constant | GCKeyNames.h | key_names::INTERNATIONAL_5 |
+| GCKeyInternational6 | constant | GCKeyNames.h | key_names::INTERNATIONAL_6 |
+| GCKeyInternational7 | constant | GCKeyNames.h | key_names::INTERNATIONAL_7 |
+| GCKeyInternational8 | constant | GCKeyNames.h | key_names::INTERNATIONAL_8 |
+| GCKeyInternational9 | constant | GCKeyNames.h | key_names::INTERNATIONAL_9 |
+| GCKeyJ | constant | GCKeyNames.h | key_names::J |
+| GCKeyK | constant | GCKeyNames.h | key_names::K |
+| GCKeyKeypad0 | constant | GCKeyNames.h | key_names::KEYPAD_0 |
+| GCKeyKeypad1 | constant | GCKeyNames.h | key_names::KEYPAD_1 |
+| GCKeyKeypad2 | constant | GCKeyNames.h | key_names::KEYPAD_2 |
+| GCKeyKeypad3 | constant | GCKeyNames.h | key_names::KEYPAD_3 |
+| GCKeyKeypad4 | constant | GCKeyNames.h | key_names::KEYPAD_4 |
+| GCKeyKeypad5 | constant | GCKeyNames.h | key_names::KEYPAD_5 |
+| GCKeyKeypad6 | constant | GCKeyNames.h | key_names::KEYPAD_6 |
+| GCKeyKeypad7 | constant | GCKeyNames.h | key_names::KEYPAD_7 |
+| GCKeyKeypad8 | constant | GCKeyNames.h | key_names::KEYPAD_8 |
+| GCKeyKeypad9 | constant | GCKeyNames.h | key_names::KEYPAD_9 |
+| GCKeyKeypadAsterisk | constant | GCKeyNames.h | key_names::KEYPAD_ASTERISK |
+| GCKeyKeypadEnter | constant | GCKeyNames.h | key_names::KEYPAD_ENTER |
+| GCKeyKeypadEqualSign | constant | GCKeyNames.h | key_names::KEYPAD_EQUAL_SIGN |
+| GCKeyKeypadHyphen | constant | GCKeyNames.h | key_names::KEYPAD_HYPHEN |
+| GCKeyKeypadNumLock | constant | GCKeyNames.h | key_names::KEYPAD_NUM_LOCK |
+| GCKeyKeypadPeriod | constant | GCKeyNames.h | key_names::KEYPAD_PERIOD |
+| GCKeyKeypadPlus | constant | GCKeyNames.h | key_names::KEYPAD_PLUS |
+| GCKeyKeypadSlash | constant | GCKeyNames.h | key_names::KEYPAD_SLASH |
+| GCKeyL | constant | GCKeyNames.h | key_names::L |
+| GCKeyLANG1 | constant | GCKeyNames.h | key_names::LANG_1 |
+| GCKeyLANG2 | constant | GCKeyNames.h | key_names::LANG_2 |
+| GCKeyLANG3 | constant | GCKeyNames.h | key_names::LANG_3 |
+| GCKeyLANG4 | constant | GCKeyNames.h | key_names::LANG_4 |
+| GCKeyLANG5 | constant | GCKeyNames.h | key_names::LANG_5 |
+| GCKeyLANG6 | constant | GCKeyNames.h | key_names::LANG_6 |
+| GCKeyLANG7 | constant | GCKeyNames.h | key_names::LANG_7 |
+| GCKeyLANG8 | constant | GCKeyNames.h | key_names::LANG_8 |
+| GCKeyLANG9 | constant | GCKeyNames.h | key_names::LANG_9 |
+| GCKeyLeftAlt | constant | GCKeyNames.h | key_names::LEFT_ALT |
+| GCKeyLeftArrow | constant | GCKeyNames.h | key_names::LEFT_ARROW |
+| GCKeyLeftControl | constant | GCKeyNames.h | key_names::LEFT_CONTROL |
+| GCKeyLeftGUI | constant | GCKeyNames.h | key_names::LEFT_GUI |
+| GCKeyLeftShift | constant | GCKeyNames.h | key_names::LEFT_SHIFT |
+| GCKeyM | constant | GCKeyNames.h | key_names::M |
+| GCKeyN | constant | GCKeyNames.h | key_names::N |
+| GCKeyNine | constant | GCKeyNames.h | key_names::NINE |
+| GCKeyNonUSBackslash | constant | GCKeyNames.h | key_names::NON_US_BACKSLASH |
+| GCKeyNonUSPound | constant | GCKeyNames.h | key_names::NON_US_POUND |
+| GCKeyO | constant | GCKeyNames.h | key_names::O |
+| GCKeyOne | constant | GCKeyNames.h | key_names::ONE |
+| GCKeyOpenBracket | constant | GCKeyNames.h | key_names::OPEN_BRACKET |
+| GCKeyP | constant | GCKeyNames.h | key_names::P |
+| GCKeyPageDown | constant | GCKeyNames.h | key_names::PAGE_DOWN |
+| GCKeyPageUp | constant | GCKeyNames.h | key_names::PAGE_UP |
+| GCKeyPause | constant | GCKeyNames.h | key_names::PAUSE |
+| GCKeyPeriod | constant | GCKeyNames.h | key_names::PERIOD |
+| GCKeyPower | constant | GCKeyNames.h | key_names::POWER |
+| GCKeyPrintScreen | constant | GCKeyNames.h | key_names::PRINT_SCREEN |
+| GCKeyQ | constant | GCKeyNames.h | key_names::Q |
+| GCKeyQuote | constant | GCKeyNames.h | key_names::QUOTE |
+| GCKeyR | constant | GCKeyNames.h | key_names::R |
+| GCKeyReturnOrEnter | constant | GCKeyNames.h | key_names::RETURN_OR_ENTER |
+| GCKeyRightAlt | constant | GCKeyNames.h | key_names::RIGHT_ALT |
+| GCKeyRightArrow | constant | GCKeyNames.h | key_names::RIGHT_ARROW |
+| GCKeyRightControl | constant | GCKeyNames.h | key_names::RIGHT_CONTROL |
+| GCKeyRightGUI | constant | GCKeyNames.h | key_names::RIGHT_GUI |
+| GCKeyRightShift | constant | GCKeyNames.h | key_names::RIGHT_SHIFT |
+| GCKeyS | constant | GCKeyNames.h | key_names::S |
+| GCKeyScrollLock | constant | GCKeyNames.h | key_names::SCROLL_LOCK |
+| GCKeySemicolon | constant | GCKeyNames.h | key_names::SEMICOLON |
+| GCKeySeven | constant | GCKeyNames.h | key_names::SEVEN |
+| GCKeySix | constant | GCKeyNames.h | key_names::SIX |
+| GCKeySlash | constant | GCKeyNames.h | key_names::SLASH |
+| GCKeySpacebar | constant | GCKeyNames.h | key_names::SPACEBAR |
+| GCKeyT | constant | GCKeyNames.h | key_names::T |
+| GCKeyTab | constant | GCKeyNames.h | key_names::TAB |
+| GCKeyThree | constant | GCKeyNames.h | key_names::THREE |
+| GCKeyTwo | constant | GCKeyNames.h | key_names::TWO |
+| GCKeyU | constant | GCKeyNames.h | key_names::U |
+| GCKeyUpArrow | constant | GCKeyNames.h | key_names::UP_ARROW |
+| GCKeyV | constant | GCKeyNames.h | key_names::V |
+| GCKeyW | constant | GCKeyNames.h | key_names::W |
+| GCKeyX | constant | GCKeyNames.h | key_names::X |
+| GCKeyY | constant | GCKeyNames.h | key_names::Y |
+| GCKeyZ | constant | GCKeyNames.h | key_names::Z |
+| GCKeyZero | constant | GCKeyNames.h | key_names::ZERO |
 | GCKeyboard | interface | GCKeyboard.h | keyboard_is_connected(); keyboard_snapshot() |
 | GCKeyboardInput | interface | GCKeyboardInput.h | keyboard_any_key_pressed(); keyboard_is_key_pressed(); KeyboardSnapshot |
 | GCLinearInput | protocol | GCLinearInput.h | ButtonInputState.value; AxisElementState.absolute_value |
@@ -52,6 +376,7 @@ COVERAGE_PCT: 11.97%
 | GCMouse | interface | GCMouse.h | mouse_is_connected(); mouse_button_states(); mouse_snapshot() |
 | GCMouseInput | interface | GCMouseInput.h | mouse_button_states(); MouseSnapshot |
 | GCPhysicalInputElement | protocol | GCPhysicalInputElement.h | NamedButtonElementState/NamedAxisElementState/NamedSwitchElementState/NamedDirectionPadElementState |
+| GCPhysicalInputElementName | typedef | GCInputNames.h | GCPhysicalInputElementName / GCInputElementName aliases; input_names::SHIFTER |
 | GCPhysicalInputProfile | interface | GCPhysicalInputProfile.h | PhysicalInputProfileDetails; ControllerDetails.physical_input; KeyboardSnapshot.physical_input; MouseSnapshot.physical_input |
 | GCPressedStateInput | protocol | GCPressedStateInput.h | ButtonInputState.pressed/value |
 | GCQuaternion | typedef struct | GCMotion.h | Quaternion; MotionDetails.attitude |
@@ -62,6 +387,7 @@ COVERAGE_PCT: 11.97%
 | GCRotationRate | typedef struct | GCMotion.h | MotionDetails.rotation_rate |
 | GCSteeringWheelElement | interface | GCSteeringWheelElement.h | SteeringWheelDetails; RacingWheelInputDetails.wheel |
 | GCSwitchElement | protocol | GCSwitchElement.h | NamedSwitchElementState; SwitchInputState |
+| GCSwitchElementName | typedef | GCInputNames.h | GCSwitchElementName / GCInputSwitchName aliases |
 | GCSwitchPositionInput | protocol | GCSwitchPositionInput.h | SwitchInputState; GearShifterDetails.pattern_* |
 | GCTouchState | typedef enum | GCControllerTouchpad.h | TouchState |
 | GCTouchedStateInput | protocol | GCTouchedStateInput.h | ButtonInputState.touched |
@@ -71,20 +397,12 @@ COVERAGE_PCT: 11.97%
 | Symbol | Kind | Header | Notes |
 | --- | --- | --- | --- |
 | GCAxis2DInput | protocol | GCAxis2DInput.h | No standalone Rust wrapper for the generic axis-input protocol. |
-| GCAxisElementName | typedef | GCInputNames.h | Aliases are surfaced as String values, not typed input-name wrappers. |
 | GCAxisInput | protocol | GCAxisInput.h | No standalone Rust wrapper for the generic axis-input protocol. |
-| GCButtonElementName | typedef | GCInputNames.h | Aliases are surfaced as String values, not typed input-name wrappers. |
 | GCControllerDidBecomeCurrentNotification | constant | GCController.h | No Rust notification wrapper for this lifecycle event. |
 | GCControllerDidStopBeingCurrentNotification | constant | GCController.h | No Rust notification wrapper for this lifecycle event. |
 | GCControllerElement | interface | GCControllerElement.h | No standalone Rust wrapper for controller-element base metadata or system-gesture state. |
 | GCControllerUserCustomizationsDidChangeNotification | constant | GCController.h | No Rust notification wrapper for this lifecycle event. |
 | GCDevice | protocol | GCDevice.h | No generic Rust device abstraction for handler queues or shared GCDevice properties. |
-| GCDeviceCursor | interface | GCDeviceCursor.h | Cursor delta APIs are not wrapped. |
-| GCDevicePhysicalInput | protocol | GCDevicePhysicalInput.h | Advanced physical-input queue/diff APIs are not wrapped as standalone Rust types. |
-| GCDevicePhysicalInputElementChange | typedef enum | GCDevicePhysicalInputStateDiff.h | Advanced physical-input queue/diff APIs are not wrapped as standalone Rust types. |
-| GCDevicePhysicalInputState | protocol | GCDevicePhysicalInputState.h | Advanced physical-input queue/diff APIs are not wrapped as standalone Rust types. |
-| GCDevicePhysicalInputStateDiff | protocol | GCDevicePhysicalInputStateDiff.h | Advanced physical-input queue/diff APIs are not wrapped as standalone Rust types. |
-| GCDirectionPadElementName | typedef | GCInputNames.h | Aliases are surfaced as String values, not typed input-name wrappers. |
 | GCDualSenseAdaptiveTriggerPositionalAmplitudes | typedef struct | GCDualSenseAdaptiveTrigger.h | DualSense helpers expose higher-level trigger modes, not the raw positional-array structs. |
 | GCDualSenseAdaptiveTriggerPositionalResistiveStrengths | typedef struct | GCDualSenseAdaptiveTrigger.h | DualSense helpers expose higher-level trigger modes, not the raw positional-array structs. |
 | GCEulerAngles | typedef struct | GCMotion.h | Motion snapshots expose quaternions/vector3 values, not Euler-angle structs. |
@@ -98,322 +416,6 @@ COVERAGE_PCT: 11.97%
 | GCHapticsLocalityRightHandle | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
 | GCHapticsLocalityRightTrigger | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
 | GCHapticsLocalityTriggers | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCInputArcadeButtonName | function | GCInputNames.h | No Rust helper for this generated input-name symbol. |
-| GCInputBackLeftButton | function | GCInputNames.h | No Rust helper for this generated input-name symbol. |
-| GCInputBackRightButton | function | GCInputNames.h | No Rust helper for this generated input-name symbol. |
-| GCInputButtonA | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputButtonB | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputButtonHome | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputButtonMenu | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputButtonOptions | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputButtonShare | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputButtonX | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputButtonY | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputDirectionPad | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputDirectionalCardinalDpad | constant | GCDirectionalGamepad.h | No Rust export for these input-name constants. |
-| GCInputDirectionalCenterButton | constant | GCDirectionalGamepad.h | No Rust export for these input-name constants. |
-| GCInputDirectionalDpad | constant | GCDirectionalGamepad.h | No Rust export for these input-name constants. |
-| GCInputDirectionalTouchSurfaceButton | constant | GCDirectionalGamepad.h | No Rust export for these input-name constants. |
-| GCInputDualShockTouchpadButton | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputDualShockTouchpadOne | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputDualShockTouchpadTwo | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputGripButton | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputLeftBumper | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputLeftPaddle | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputLeftShoulder | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputLeftThumbstick | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputLeftThumbstickButton | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputLeftTrigger | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputMicroGamepadButtonA | constant | GCMicroGamepad.h | No Rust export for these input-name constants. |
-| GCInputMicroGamepadButtonMenu | constant | GCMicroGamepad.h | No Rust export for these input-name constants. |
-| GCInputMicroGamepadButtonX | constant | GCMicroGamepad.h | No Rust export for these input-name constants. |
-| GCInputMicroGamepadDpad | constant | GCMicroGamepad.h | No Rust export for these input-name constants. |
-| GCInputPedalAccelerator | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputPedalBrake | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputPedalClutch | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputRightBumper | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputRightPaddle | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputRightShoulder | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputRightThumbstick | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputRightThumbstickButton | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputRightTrigger | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputShifter | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputSteeringWheel | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputThumbstick | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputThumbstickButton | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputTrigger | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputXboxPaddleFour | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputXboxPaddleOne | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputXboxPaddleThree | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCInputXboxPaddleTwo | constant | GCInputNames.h | No Rust export for this GCInput* alias constant. |
-| GCKeyA | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyApplication | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyB | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyBackslash | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyC | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyCapsLock | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyCloseBracket | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyCodeApplication | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeBackslash | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeCapsLock | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeCloseBracket | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeComma | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeDeleteForward | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeDeleteOrBackspace | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeDownArrow | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeEight | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeEnd | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeEqualSign | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeEscape | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF1 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF10 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF11 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF12 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF13 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF14 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF15 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF16 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF17 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF18 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF19 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF2 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF20 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF3 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF4 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF5 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF6 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF7 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF8 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeF9 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeFive | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeFour | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeGraveAccentAndTilde | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeHome | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeHyphen | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInsert | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInternational1 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInternational2 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInternational3 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInternational4 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInternational5 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInternational6 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInternational7 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInternational8 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeInternational9 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyA | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyB | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyC | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyD | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyE | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyF | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyG | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyH | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyI | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyJ | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyK | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyL | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyM | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyN | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyO | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyP | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyQ | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyR | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyS | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyT | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyU | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyV | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyW | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyX | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyY | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeyZ | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad0 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad1 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad2 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad3 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad4 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad5 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad6 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad7 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad8 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypad9 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypadAsterisk | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypadEnter | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypadEqualSign | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypadHyphen | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypadNumLock | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypadPeriod | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypadPlus | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeKeypadSlash | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLANG1 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLANG2 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLANG3 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLANG4 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLANG5 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLANG6 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLANG7 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLANG8 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLANG9 | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLeftAlt | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLeftArrow | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLeftControl | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLeftGUI | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeLeftShift | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeNine | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeNonUSBackslash | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeNonUSPound | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeOne | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeOpenBracket | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodePageDown | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodePageUp | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodePause | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodePeriod | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodePower | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodePrintScreen | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeQuote | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeReturnOrEnter | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeRightAlt | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeRightArrow | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeRightControl | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeRightGUI | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeRightShift | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeScrollLock | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeSemicolon | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeSeven | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeSix | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeSlash | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeSpacebar | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeTab | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeThree | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeTwo | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeUpArrow | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyCodeZero | constant | GCKeyCodes.h | No Rust constant export for this HID-page-7 keycode. |
-| GCKeyComma | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyD | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyDeleteForward | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyDeleteOrBackspace | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyDownArrow | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyE | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyEight | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyEnd | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyEqualSign | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyEscape | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF1 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF10 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF11 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF12 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF13 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF14 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF15 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF16 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF17 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF18 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF19 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF2 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF20 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF3 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF4 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF5 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF6 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF7 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF8 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyF9 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyFive | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyFour | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyG | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyGraveAccentAndTilde | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyH | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyHome | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyHyphen | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyI | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInsert | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInternational1 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInternational2 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInternational3 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInternational4 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInternational5 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInternational6 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInternational7 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInternational8 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyInternational9 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyJ | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyK | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad0 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad1 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad2 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad3 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad4 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad5 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad6 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad7 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad8 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypad9 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypadAsterisk | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypadEnter | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypadEqualSign | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypadHyphen | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypadNumLock | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypadPeriod | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypadPlus | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyKeypadSlash | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyL | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLANG1 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLANG2 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLANG3 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLANG4 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLANG5 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLANG6 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLANG7 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLANG8 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLANG9 | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLeftAlt | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLeftArrow | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLeftControl | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLeftGUI | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyLeftShift | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyM | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyN | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyNine | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyNonUSBackslash | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyNonUSPound | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyO | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyOne | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyOpenBracket | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyP | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyPageDown | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyPageUp | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyPause | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyPeriod | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyPower | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyPrintScreen | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyQ | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyQuote | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyR | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyReturnOrEnter | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyRightAlt | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyRightArrow | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyRightControl | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyRightGUI | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyRightShift | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyS | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyScrollLock | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeySemicolon | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeySeven | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeySix | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeySlash | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeySpacebar | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyT | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyTab | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyThree | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyTwo | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyU | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyUpArrow | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyV | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyW | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyX | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyY | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyZ | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
-| GCKeyZero | constant | GCKeyNames.h | No Rust constant export for this GCKey* alias. |
 | GCKeyboardDidConnectNotification | constant | GCKeyboard.h | No Rust notification wrapper for this lifecycle event. |
 | GCKeyboardDidDisconnectNotification | constant | GCKeyboard.h | No Rust notification wrapper for this lifecycle event. |
 | GCMouseDidBecomeCurrentNotification | constant | GCMouse.h | No Rust notification wrapper for this lifecycle event. |
@@ -421,7 +423,6 @@ COVERAGE_PCT: 11.97%
 | GCMouseDidDisconnectNotification | constant | GCMouse.h | No Rust notification wrapper for this lifecycle event. |
 | GCMouseDidStopBeingCurrentNotification | constant | GCMouse.h | No Rust notification wrapper for this lifecycle event. |
 | GCPhysicalInputElementCollection | interface | GCPhysicalInputElement.h | Collections are materialized as Vec<T>, not exposed as GCPhysicalInputElementCollection. |
-| GCPhysicalInputElementName | typedef | GCInputNames.h | Aliases are surfaced as String values, not typed input-name wrappers. |
 | GCPhysicalInputExtents | protocol | GCPhysicalInputExtents.h | Physical-input extent metadata is not wrapped. |
 | GCPhysicalInputSource | protocol | GCPhysicalInputSource.h | Remapping/source metadata is not wrapped. |
 | GCPhysicalInputSourceDirection | typedef enum | GCPhysicalInputSource.h | Remapping/source metadata is not wrapped. |
@@ -443,7 +444,6 @@ COVERAGE_PCT: 11.97%
 | GCProductCategoryXboxOne | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
 | GCRacingWheelDidConnectNotification | constant | GCRacingWheel.h | No Rust notification wrapper for this lifecycle event. |
 | GCRacingWheelDidDisconnectNotification | constant | GCRacingWheel.h | No Rust notification wrapper for this lifecycle event. |
-| GCSwitchElementName | typedef | GCInputNames.h | Aliases are surfaced as String values, not typed input-name wrappers. |
 | GCSystemGestureState | typedef enum | GCControllerElement.h | No standalone Rust wrapper for controller-element base metadata or system-gesture state. |
 
 ## ⏭️ EXEMPT

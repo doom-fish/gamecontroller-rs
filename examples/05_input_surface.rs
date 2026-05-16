@@ -1,4 +1,4 @@
-//! Exercise the v0.7 input / device-snapshot surface without requiring hardware.
+//! Exercise the v0.7.1 input / constant / device-snapshot surface without requiring hardware.
 //!
 //! Run: `cargo run --example 05_input_surface`
 
@@ -24,6 +24,17 @@ fn main() -> Result<(), GameControllerError> {
     println!(
         "current_input: {}",
         current_controller_input_snapshot()?.is_some()
+    );
+    println!(
+        "current_input_source: {}",
+        current_controller_input_source()?.is_some()
+    );
+    println!(
+        "constants: key_a={} key_space={} button_a={} left_thumbstick={}",
+        key_codes::KEY_A,
+        key_names::SPACEBAR,
+        input_names::BUTTON_A,
+        input_names::LEFT_THUMBSTICK,
     );
     println!("first_battery: {}", first_controller_battery()?.is_some());
     println!("first_light: {}", first_controller_light()?.is_some());

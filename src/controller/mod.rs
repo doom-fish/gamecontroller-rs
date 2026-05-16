@@ -1,5 +1,6 @@
 //! High-level `Controller` snapshot type.
 
+mod constants;
 mod details;
 
 use core::ffi::c_void;
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ffi;
 
+pub use constants::*;
 pub use details::*;
 
 /// A point-in-time snapshot of one connected `GCController`.

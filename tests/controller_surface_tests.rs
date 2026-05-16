@@ -15,6 +15,11 @@ fn controller_surface_smoke() -> Result<(), GameControllerError> {
     }
 
     let _ = current_controller_input_snapshot()?;
+    if let Some(source) = current_controller_input_source()? {
+        let _ = source.input_state_queue_depth;
+        let _ = &source.capture;
+        let _ = &source.next_diff;
+    }
     let _ = first_controller_battery()?;
     let _ = first_controller_light()?;
     let _ = first_controller_haptics()?;

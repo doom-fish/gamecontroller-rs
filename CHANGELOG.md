@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.1] - 2026-05-17
+
+### Added
+
+- High-impact constant coverage for the large GameController tables:
+  - `key_codes::*` for `GCKeyCode*`
+  - `key_names::*` for `GCKey*`
+  - `input_names::*` for `GCInput*`
+  - typed name aliases such as `GCKeyName`, `GCInputButtonName`, `GCButtonElementName`, and `GCPhysicalInputElementName`
+- `current_controller_input_source()` plus `DevicePhysicalInputSourceDetails` / `DevicePhysicalInputStateDiffDetails` for `GCDevicePhysicalInput` live/capture/queued-diff snapshots.
+- `GCDeviceCursor` alias coverage via `DeviceCursorState` / `MouseSnapshot::scroll`.
+- Smoke coverage for the new constant/input-source surface.
+
+### Changed
+
+- README surface docs now call out the constant modules and `GCDevicePhysicalInput` source snapshots.
+- `COVERAGE_AUDIT.md` now reflects the v0.7.1 gap-closure sweep and documents the smaller set of still-pending areas.
+
 ## [0.7.0] - 2026-05-16
 
 ### Added
