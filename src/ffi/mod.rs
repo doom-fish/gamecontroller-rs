@@ -4,6 +4,8 @@
 
 use core::ffi::{c_char, c_void};
 
+pub type DiscoveryCallback = unsafe extern "C" fn(user_info: *mut c_void);
+
 #[repr(C)]
 pub struct ControllerInfoRaw {
     pub vendor_name: *mut c_char,
@@ -62,6 +64,7 @@ extern "C" {
         out_count: *mut usize,
     ) -> i32;
     pub fn gc_controller_infos_free(array: *mut c_void, count: usize);
+    pub fn gc_controller_details_json(current_only: bool) -> *mut c_char;
 
     pub fn gc_first_controller_extra(out_info: *mut ExtraInfoRaw) -> bool;
     pub fn gc_register_connection_callback(
@@ -69,6 +72,13 @@ extern "C" {
         user_info: *mut c_void,
     ) -> *mut c_void;
     pub fn gc_unregister_connection_callback(token: *mut c_void);
+    pub fn gc_start_wireless_controller_discovery(
+        callback: Option<DiscoveryCallback>,
+        user_info: *mut c_void,
+    );
+    pub fn gc_stop_wireless_controller_discovery();
+    pub fn gc_should_monitor_background_events() -> bool;
+    pub fn gc_set_should_monitor_background_events(enabled: bool);
 
     pub fn gc_first_controller_set_light(red: f32, green: f32, blue: f32) -> bool;
     pub fn gc_first_controller_set_player_index(index: i32) -> bool;

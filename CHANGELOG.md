@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.6.0] - 2026-05-16
+
+### Added
+
+- `connected_controller_details()` and `current_controller_snapshot()` for richer JSON-backed snapshots of:
+  - `GCController.current`
+  - legacy `gamepad` / `microGamepad` / `extendedGamepad`
+  - `GCPhysicalInputProfile`
+  - `DualSense` touchpad + adaptive-trigger state
+  - battery / motion availability inside the same snapshot
+- Wireless discovery helpers:
+  - `start_wireless_controller_discovery()`
+  - `start_wireless_controller_discovery_with_callback()`
+  - `stop_wireless_controller_discovery()`
+- Background-event accessors:
+  - `should_monitor_background_events()`
+  - `set_should_monitor_background_events()`
+- `dualsense_trigger_slope_feedback()`.
+- `GameControllerError` for the new JSON-backed helpers.
+- Example `03_smoke_surface`.
+
+### Changed
+
+- Improved the Swift bridge to expose `GCController.current`, `input`, `physicalInputProfile`, wireless discovery, and richer `DualSense` trigger state.
+- `gc_dualsense_set_trigger_mode` now drives distinct feedback / weapon / vibration / slope-style trigger behavior instead of collapsing everything to uniform resistance.
+- Expanded the API-coverage harness from a single `GCController` check to the main controller/profile families (`GCController`, `GCPhysicalInputProfile`, `GCGamepad`, `GCMicroGamepad`, `GCExtendedGamepad`, `GCDualSenseGamepad`, `GCDualSenseAdaptiveTrigger`).
+- Crate packaging now includes `examples/` and `tests/`.
+
 ## [0.1.0] - Initial release
 
 ### Added

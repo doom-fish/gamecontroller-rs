@@ -420,6 +420,582 @@ public func gc_all_controllers_extras(
     return n
 }
 
+// MARK: - Rich controller/profile snapshots + discovery (v0.6)
+
+public typealias GCDiscoveryCallback = @convention(c) (UnsafeMutableRawPointer?) -> Void
+
+private final class DiscoveryState {
+    let callback: GCDiscoveryCallback?
+    let userInfo: UnsafeMutableRawPointer?
+
+    init(callback: GCDiscoveryCallback?, userInfo: UnsafeMutableRawPointer?) {
+        self.callback = callback
+        self.userInfo = userInfo
+    }
+
+    func complete() {
+        callback?(userInfo)
+    }
+}
+
+private var discoveryState: DiscoveryState?
+
+private struct ButtonInputStatePayload: Codable {
+    let value: Float
+    let pressed: Bool
+    let touched: Bool
+}
+
+private struct AxisInputStatePayload: Codable {
+    let value: Float
+}
+
+private struct DirectionPadInputStatePayload: Codable {
+    let x: Float
+    let y: Float
+    let up: ButtonInputStatePayload
+    let down: ButtonInputStatePayload
+    let left: ButtonInputStatePayload
+    let right: ButtonInputStatePayload
+}
+
+private struct TouchpadDetailsPayload: Codable {
+    let button: ButtonInputStatePayload
+    let touchSurface: DirectionPadInputStatePayload
+    let touchState: String
+    let reportsAbsoluteTouchSurfaceValues: Bool
+}
+
+private struct GamepadDetailsPayload: Codable {
+    let dpad: DirectionPadInputStatePayload
+    let buttonA: ButtonInputStatePayload
+    let buttonB: ButtonInputStatePayload
+    let buttonX: ButtonInputStatePayload
+    let buttonY: ButtonInputStatePayload
+    let leftShoulder: ButtonInputStatePayload
+    let rightShoulder: ButtonInputStatePayload
+}
+
+private struct MicroGamepadDetailsPayload: Codable {
+    let dpad: DirectionPadInputStatePayload
+    let buttonA: ButtonInputStatePayload
+    let buttonX: ButtonInputStatePayload
+    let buttonMenu: ButtonInputStatePayload?
+    let reportsAbsoluteDpadValues: Bool
+    let allowsRotation: Bool
+}
+
+private struct ExtendedGamepadDetailsPayload: Codable {
+    let dpad: DirectionPadInputStatePayload
+    let buttonA: ButtonInputStatePayload
+    let buttonB: ButtonInputStatePayload
+    let buttonX: ButtonInputStatePayload
+    let buttonY: ButtonInputStatePayload
+    let buttonMenu: ButtonInputStatePayload?
+    let buttonOptions: ButtonInputStatePayload?
+    let buttonHome: ButtonInputStatePayload?
+    let leftThumbstick: DirectionPadInputStatePayload
+    let rightThumbstick: DirectionPadInputStatePayload
+    let leftShoulder: ButtonInputStatePayload
+    let rightShoulder: ButtonInputStatePayload
+    let leftTrigger: ButtonInputStatePayload
+    let rightTrigger: ButtonInputStatePayload
+    let leftThumbstickButton: ButtonInputStatePayload?
+    let rightThumbstickButton: ButtonInputStatePayload?
+}
+
+private struct DualSenseAdaptiveTriggerStatePayload: Codable {
+    let value: Float
+    let pressed: Bool
+    let touched: Bool
+    let mode: String
+    let status: String
+    let armPosition: Float
+}
+
+private struct DualSenseGamepadDetailsPayload: Codable {
+    let touchpadButton: ButtonInputStatePayload
+    let touchpadPrimary: DirectionPadInputStatePayload
+    let touchpadSecondary: DirectionPadInputStatePayload
+    let leftTrigger: DualSenseAdaptiveTriggerStatePayload
+    let rightTrigger: DualSenseAdaptiveTriggerStatePayload
+}
+
+private struct BatteryInfoPayload: Codable {
+    let level: Float
+    let state: String
+}
+
+private struct Vector3Payload: Codable {
+    let x: Double
+    let y: Double
+    let z: Double
+}
+
+private struct QuaternionPayload: Codable {
+    let x: Double
+    let y: Double
+    let z: Double
+    let w: Double
+}
+
+private struct MotionDetailsPayload: Codable {
+    let sensorsRequireManualActivation: Bool
+    let sensorsActive: Bool
+    let hasGravityAndUserAcceleration: Bool
+    let gravity: Vector3Payload
+    let userAcceleration: Vector3Payload
+    let acceleration: Vector3Payload
+    let hasAttitude: Bool
+    let hasRotationRate: Bool
+    let attitude: QuaternionPayload
+    let rotationRate: Vector3Payload
+}
+
+private struct NamedButtonInputStatePayload: Codable {
+    let alias: String
+    let value: ButtonInputStatePayload
+}
+
+private struct NamedAxisInputStatePayload: Codable {
+    let alias: String
+    let value: AxisInputStatePayload
+}
+
+private struct NamedDirectionPadStatePayload: Codable {
+    let alias: String
+    let value: DirectionPadInputStatePayload
+}
+
+private struct NamedTouchpadStatePayload: Codable {
+    let alias: String
+    let value: TouchpadDetailsPayload
+}
+
+private struct PhysicalInputProfileDetailsPayload: Codable {
+    let lastEventTimestamp: Double
+    let hasRemappedElements: Bool
+    let elementAliases: [String]
+    let buttonAliases: [String]
+    let axisAliases: [String]
+    let dpadAliases: [String]
+    let touchpadAliases: [String]
+    let buttons: [NamedButtonInputStatePayload]
+    let axes: [NamedAxisInputStatePayload]
+    let dpads: [NamedDirectionPadStatePayload]
+    let touchpads: [NamedTouchpadStatePayload]
+}
+
+private struct ControllerDetailsPayload: Codable {
+    let vendorName: String
+    let productCategory: String
+    let playerIndex: Int32
+    let isAttachedToDevice: Bool
+    let isCurrent: Bool
+    let supportsBackgroundEvents: Bool
+    let hasLiveInput: Bool
+    let gamepad: GamepadDetailsPayload?
+    let microGamepad: MicroGamepadDetailsPayload?
+    let extendedGamepad: ExtendedGamepadDetailsPayload?
+    let dualSense: DualSenseGamepadDetailsPayload?
+    let battery: BatteryInfoPayload?
+    let motion: MotionDetailsPayload?
+    let hasLight: Bool
+    let hasHaptics: Bool
+    let physicalInput: PhysicalInputProfileDetailsPayload?
+}
+
+private func jsonString<T: Encodable>(_ value: T) -> UnsafeMutablePointer<CChar>? {
+    let encoder = JSONEncoder()
+    guard let data = try? encoder.encode(value),
+          let string = String(data: data, encoding: .utf8) else {
+        return nil
+    }
+    return ffiString(string)
+}
+
+private func clampUnit(_ value: Float) -> Float {
+    max(0, min(1, value))
+}
+
+@available(macOS 12.3, *)
+private func dualSenseStepIndex(for position: Float) -> Int {
+    let maxIndex = max(0, GCDualSenseAdaptiveTrigger.discretePositionCount - 1)
+    return Int((Double(clampUnit(position)) * Double(maxIndex)).rounded())
+}
+
+@available(macOS 12.3, *)
+private func makeResistiveStrengths(_ values: [Float]) -> GCDualSenseAdaptiveTrigger.PositionalResistiveStrengths {
+    var strengths = GCDualSenseAdaptiveTrigger.PositionalResistiveStrengths()
+    strengths.values = (
+        clampUnit(values[0]), clampUnit(values[1]), clampUnit(values[2]), clampUnit(values[3]), clampUnit(values[4]),
+        clampUnit(values[5]), clampUnit(values[6]), clampUnit(values[7]), clampUnit(values[8]), clampUnit(values[9])
+    )
+    return strengths
+}
+
+@available(macOS 12.3, *)
+private func makeAmplitudes(_ values: [Float]) -> GCDualSenseAdaptiveTrigger.PositionalAmplitudes {
+    var amplitudes = GCDualSenseAdaptiveTrigger.PositionalAmplitudes()
+    amplitudes.values = (
+        clampUnit(values[0]), clampUnit(values[1]), clampUnit(values[2]), clampUnit(values[3]), clampUnit(values[4]),
+        clampUnit(values[5]), clampUnit(values[6]), clampUnit(values[7]), clampUnit(values[8]), clampUnit(values[9])
+    )
+    return amplitudes
+}
+
+private func buttonPayload(_ button: GCControllerButtonInput) -> ButtonInputStatePayload {
+    ButtonInputStatePayload(value: button.value, pressed: button.isPressed, touched: button.isTouched)
+}
+
+private func axisPayload(_ axis: GCControllerAxisInput) -> AxisInputStatePayload {
+    AxisInputStatePayload(value: axis.value)
+}
+
+private func directionPadPayload(_ dpad: GCControllerDirectionPad) -> DirectionPadInputStatePayload {
+    DirectionPadInputStatePayload(
+        x: dpad.xAxis.value,
+        y: dpad.yAxis.value,
+        up: buttonPayload(dpad.up),
+        down: buttonPayload(dpad.down),
+        left: buttonPayload(dpad.left),
+        right: buttonPayload(dpad.right)
+    )
+}
+
+private func touchStateName(_ state: GCControllerTouchpad.TouchState) -> String {
+    switch state {
+    case .up: return "up"
+    case .down: return "down"
+    case .moving: return "moving"
+    @unknown default: return "up"
+    }
+}
+
+private func touchpadPayload(_ touchpad: GCControllerTouchpad) -> TouchpadDetailsPayload {
+    TouchpadDetailsPayload(
+        button: buttonPayload(touchpad.button),
+        touchSurface: directionPadPayload(touchpad.touchSurface),
+        touchState: touchStateName(touchpad.touchState),
+        reportsAbsoluteTouchSurfaceValues: touchpad.reportsAbsoluteTouchSurfaceValues
+    )
+}
+
+private func batteryStateName(_ battery: GCDeviceBattery) -> String {
+    switch battery.batteryState {
+    case .unknown: return "unknown"
+    case .discharging: return "discharging"
+    case .charging: return "charging"
+    case .full: return "full"
+    @unknown default: return "unknown"
+    }
+}
+
+@available(macOS 11.3, *)
+private func dualSenseModeName(_ mode: GCDualSenseAdaptiveTrigger.Mode) -> String {
+    switch mode.rawValue {
+    case 0: return "off"
+    case 1: return "feedback"
+    case 2: return "weapon"
+    case 3: return "vibration"
+    case 4: return "slope_feedback"
+    default: return "off"
+    }
+}
+
+@available(macOS 11.3, *)
+private func dualSenseStatusName(_ status: GCDualSenseAdaptiveTrigger.Status) -> String {
+    switch status.rawValue {
+    case -1: return "unknown"
+    case 0: return "feedback_no_load"
+    case 1: return "feedback_load_applied"
+    case 2: return "weapon_ready"
+    case 3: return "weapon_firing"
+    case 4: return "weapon_fired"
+    case 5: return "vibration_not_vibrating"
+    case 6: return "vibration_is_vibrating"
+    case 7: return "slope_feedback_ready"
+    case 8: return "slope_feedback_applying_load"
+    case 9: return "slope_feedback_finished"
+    default: return "unknown"
+    }
+}
+
+@available(macOS 11.3, *)
+private func dualSenseTriggerPayload(_ trigger: GCDualSenseAdaptiveTrigger) -> DualSenseAdaptiveTriggerStatePayload {
+    DualSenseAdaptiveTriggerStatePayload(
+        value: trigger.value,
+        pressed: trigger.isPressed,
+        touched: trigger.isTouched,
+        mode: dualSenseModeName(trigger.mode),
+        status: dualSenseStatusName(trigger.status),
+        armPosition: trigger.armPosition
+    )
+}
+
+private func gamepadPayload(_ gamepad: GCGamepad) -> GamepadDetailsPayload {
+    _ = gamepad.controller
+    return GamepadDetailsPayload(
+        dpad: directionPadPayload(gamepad.dpad),
+        buttonA: buttonPayload(gamepad.buttonA),
+        buttonB: buttonPayload(gamepad.buttonB),
+        buttonX: buttonPayload(gamepad.buttonX),
+        buttonY: buttonPayload(gamepad.buttonY),
+        leftShoulder: buttonPayload(gamepad.leftShoulder),
+        rightShoulder: buttonPayload(gamepad.rightShoulder)
+    )
+}
+
+private func microGamepadPayload(_ microGamepad: GCMicroGamepad) -> MicroGamepadDetailsPayload {
+    _ = microGamepad.controller
+    return MicroGamepadDetailsPayload(
+        dpad: directionPadPayload(microGamepad.dpad),
+        buttonA: buttonPayload(microGamepad.buttonA),
+        buttonX: buttonPayload(microGamepad.buttonX),
+        buttonMenu: buttonPayload(microGamepad.buttonMenu),
+        reportsAbsoluteDpadValues: microGamepad.reportsAbsoluteDpadValues,
+        allowsRotation: microGamepad.allowsRotation
+    )
+}
+
+private func extendedGamepadPayload(_ gamepad: GCExtendedGamepad) -> ExtendedGamepadDetailsPayload {
+    _ = gamepad.controller
+    let buttonHome: ButtonInputStatePayload?
+    if #available(macOS 11.0, *) {
+        buttonHome = gamepad.buttonHome.map(buttonPayload)
+    } else {
+        buttonHome = nil
+    }
+
+    return ExtendedGamepadDetailsPayload(
+        dpad: directionPadPayload(gamepad.dpad),
+        buttonA: buttonPayload(gamepad.buttonA),
+        buttonB: buttonPayload(gamepad.buttonB),
+        buttonX: buttonPayload(gamepad.buttonX),
+        buttonY: buttonPayload(gamepad.buttonY),
+        buttonMenu: buttonPayload(gamepad.buttonMenu),
+        buttonOptions: gamepad.buttonOptions.map(buttonPayload),
+        buttonHome: buttonHome,
+        leftThumbstick: directionPadPayload(gamepad.leftThumbstick),
+        rightThumbstick: directionPadPayload(gamepad.rightThumbstick),
+        leftShoulder: buttonPayload(gamepad.leftShoulder),
+        rightShoulder: buttonPayload(gamepad.rightShoulder),
+        leftTrigger: buttonPayload(gamepad.leftTrigger),
+        rightTrigger: buttonPayload(gamepad.rightTrigger),
+        leftThumbstickButton: gamepad.leftThumbstickButton.map(buttonPayload),
+        rightThumbstickButton: gamepad.rightThumbstickButton.map(buttonPayload)
+    )
+}
+
+@available(macOS 11.3, *)
+private func dualSensePayload(_ gamepad: GCDualSenseGamepad) -> DualSenseGamepadDetailsPayload {
+    DualSenseGamepadDetailsPayload(
+        touchpadButton: buttonPayload(gamepad.touchpadButton),
+        touchpadPrimary: directionPadPayload(gamepad.touchpadPrimary),
+        touchpadSecondary: directionPadPayload(gamepad.touchpadSecondary),
+        leftTrigger: dualSenseTriggerPayload(gamepad.leftTrigger),
+        rightTrigger: dualSenseTriggerPayload(gamepad.rightTrigger)
+    )
+}
+
+@available(macOS 11.0, *)
+private func motionPayload(_ motion: GCMotion) -> MotionDetailsPayload {
+    _ = motion.controller
+    return MotionDetailsPayload(
+        sensorsRequireManualActivation: motion.sensorsRequireManualActivation,
+        sensorsActive: motion.sensorsActive,
+        hasGravityAndUserAcceleration: motion.hasGravityAndUserAcceleration,
+        gravity: Vector3Payload(x: motion.gravity.x, y: motion.gravity.y, z: motion.gravity.z),
+        userAcceleration: Vector3Payload(x: motion.userAcceleration.x, y: motion.userAcceleration.y, z: motion.userAcceleration.z),
+        acceleration: Vector3Payload(x: motion.acceleration.x, y: motion.acceleration.y, z: motion.acceleration.z),
+        hasAttitude: motion.hasAttitude,
+        hasRotationRate: motion.hasRotationRate,
+        attitude: QuaternionPayload(x: motion.attitude.x, y: motion.attitude.y, z: motion.attitude.z, w: motion.attitude.w),
+        rotationRate: Vector3Payload(x: motion.rotationRate.x, y: motion.rotationRate.y, z: motion.rotationRate.z)
+    )
+}
+
+@available(macOS 11.0, *)
+private func physicalInputPayload(_ profile: GCPhysicalInputProfile) -> PhysicalInputProfileDetailsPayload {
+    let elementAliases = profile.elements.keys.sorted()
+    let buttonAliases = profile.buttons.keys.sorted()
+    let axisAliases = profile.axes.keys.sorted()
+    let dpadAliases = profile.dpads.keys.sorted()
+    let touchpadAliases = profile.touchpads.keys.sorted()
+
+    let buttons = buttonAliases.compactMap { alias -> NamedButtonInputStatePayload? in
+        guard let button = profile.buttons[alias] else { return nil }
+        let _ = profile[alias]
+        return NamedButtonInputStatePayload(alias: alias, value: buttonPayload(button))
+    }
+    let axes = axisAliases.compactMap { alias -> NamedAxisInputStatePayload? in
+        guard let axis = profile.axes[alias] else { return nil }
+        let _ = profile[alias]
+        return NamedAxisInputStatePayload(alias: alias, value: axisPayload(axis))
+    }
+    let dpads = dpadAliases.compactMap { alias -> NamedDirectionPadStatePayload? in
+        guard let dpad = profile.dpads[alias] else { return nil }
+        let _ = profile[alias]
+        return NamedDirectionPadStatePayload(alias: alias, value: directionPadPayload(dpad))
+    }
+    let touchpads = touchpadAliases.compactMap { alias -> NamedTouchpadStatePayload? in
+        guard let touchpad = profile.touchpads[alias] else { return nil }
+        let _ = profile[alias]
+        return NamedTouchpadStatePayload(alias: alias, value: touchpadPayload(touchpad))
+    }
+
+    let hasRemappedElements: Bool
+    if #available(macOS 12.0, *) {
+        hasRemappedElements = profile.hasRemappedElements
+        for alias in elementAliases {
+            _ = profile.mappedElementAlias(forPhysicalInputName: alias)
+            _ = profile.mappedPhysicalInputNames(forElementAlias: alias)
+        }
+    } else {
+        hasRemappedElements = false
+    }
+
+    return PhysicalInputProfileDetailsPayload(
+        lastEventTimestamp: profile.lastEventTimestamp,
+        hasRemappedElements: hasRemappedElements,
+        elementAliases: elementAliases,
+        buttonAliases: buttonAliases,
+        axisAliases: axisAliases,
+        dpadAliases: dpadAliases,
+        touchpadAliases: touchpadAliases,
+        buttons: buttons,
+        axes: axes,
+        dpads: dpads,
+        touchpads: touchpads
+    )
+}
+
+private func controllerDetailsPayload(_ controller: GCController) -> ControllerDetailsPayload {
+    let currentController: GCController?
+    if #available(macOS 11.0, *) {
+        currentController = GCController.current
+    } else {
+        currentController = nil
+    }
+
+    let supportsBackgroundEvents: Bool
+    if #available(macOS 11.3, *) {
+        supportsBackgroundEvents = GCController.shouldMonitorBackgroundEvents
+    } else {
+        supportsBackgroundEvents = false
+    }
+
+    let hasLiveInput: Bool
+    if #available(macOS 14.0, *) {
+        _ = controller.input.elements.count
+        hasLiveInput = true
+    } else {
+        hasLiveInput = false
+    }
+
+    let battery: BatteryInfoPayload?
+    let motion: MotionDetailsPayload?
+    let hasLight: Bool
+    let hasHaptics: Bool
+    let physicalInput: PhysicalInputProfileDetailsPayload?
+    let dualSense: DualSenseGamepadDetailsPayload?
+    if #available(macOS 11.0, *) {
+        battery = controller.battery.map {
+            BatteryInfoPayload(level: $0.batteryLevel, state: batteryStateName($0))
+        }
+        motion = controller.motion.map(motionPayload)
+        hasLight = controller.light != nil
+        hasHaptics = controller.haptics != nil
+
+        let profile = controller.physicalInputProfile
+        _ = profile.device
+        _ = profile.allElements
+        _ = profile.allButtons
+        _ = profile.allAxes
+        _ = profile.allDpads
+        _ = profile.allTouchpads
+        _ = profile.capture()
+        physicalInput = physicalInputPayload(profile)
+    } else {
+        battery = nil
+        motion = nil
+        hasLight = false
+        hasHaptics = false
+        physicalInput = nil
+    }
+
+    if #available(macOS 11.3, *) {
+        dualSense = (controller.extendedGamepad as? GCDualSenseGamepad).map(dualSensePayload)
+    } else {
+        dualSense = nil
+    }
+
+    return ControllerDetailsPayload(
+        vendorName: controller.vendorName ?? "Unknown",
+        productCategory: controller.productCategory,
+        playerIndex: Int32(controller.playerIndex.rawValue),
+        isAttachedToDevice: controller.isAttachedToDevice,
+        isCurrent: currentController.map { $0 === controller } ?? false,
+        supportsBackgroundEvents: supportsBackgroundEvents,
+        hasLiveInput: hasLiveInput,
+        gamepad: controller.gamepad.map(gamepadPayload),
+        microGamepad: controller.microGamepad.map(microGamepadPayload),
+        extendedGamepad: controller.extendedGamepad.map(extendedGamepadPayload),
+        dualSense: dualSense,
+        battery: battery,
+        motion: motion,
+        hasLight: hasLight,
+        hasHaptics: hasHaptics,
+        physicalInput: physicalInput
+    )
+}
+
+@_cdecl("gc_controller_details_json")
+public func gc_controller_details_json(_ currentOnly: Bool) -> UnsafeMutablePointer<CChar>? {
+    let controllers: [GCController]
+    if currentOnly {
+        if #available(macOS 11.0, *), let current = GCController.current {
+            controllers = [current]
+        } else {
+            controllers = []
+        }
+    } else {
+        controllers = GCController.controllers()
+    }
+    return jsonString(controllers.map(controllerDetailsPayload))
+}
+
+@_cdecl("gc_start_wireless_controller_discovery")
+public func gc_start_wireless_controller_discovery(
+    _ callback: GCDiscoveryCallback?,
+    _ userInfo: UnsafeMutableRawPointer?
+) {
+    discoveryState = callback.map { DiscoveryState(callback: $0, userInfo: userInfo) }
+    GCController.startWirelessControllerDiscovery {
+        let state = discoveryState
+        discoveryState = nil
+        state?.complete()
+    }
+}
+
+@_cdecl("gc_stop_wireless_controller_discovery")
+public func gc_stop_wireless_controller_discovery() {
+    discoveryState = nil
+    GCController.stopWirelessControllerDiscovery()
+}
+
+@_cdecl("gc_should_monitor_background_events")
+public func gc_should_monitor_background_events() -> Bool {
+    if #unavailable(macOS 11.3) { return false }
+    return GCController.shouldMonitorBackgroundEvents
+}
+
+@_cdecl("gc_set_should_monitor_background_events")
+public func gc_set_should_monitor_background_events(_ enabled: Bool) {
+    if #unavailable(macOS 11.3) { return }
+    GCController.shouldMonitorBackgroundEvents = enabled
+}
+
 // MARK: - DualSense adaptive triggers (v0.5)
 
 private func firstDualSense() -> Any? {
@@ -436,7 +1012,8 @@ public func gc_dualsense_is_connected() -> Bool {
 }
 
 /// Modes: 0 = off, 1 = feedback (resistive), 2 = weapon (resist+snap),
-/// 3 = vibration. `which` selects left (0) or right (1) trigger.
+/// 3 = vibration, 4 = slope feedback. `which` selects left (0) or right (1)
+/// trigger.
 @_cdecl("gc_dualsense_set_trigger_mode")
 public func gc_dualsense_set_trigger_mode(
     _ which: Int32,
@@ -447,24 +1024,53 @@ public func gc_dualsense_set_trigger_mode(
     _ frequency: Float
 ) -> Bool {
     guard let ds = firstDualSense() as? GCDualSenseGamepad else { return false }
-    let trig = which == 0 ? ds.leftTrigger as? GCDualSenseAdaptiveTrigger
-                          : ds.rightTrigger as? GCDualSenseAdaptiveTrigger
-    guard let trigger = trig else { return false }
+    let trigger = which == 0 ? ds.leftTrigger : ds.rightTrigger
+    let clampedStart = clampUnit(startPosition)
+    let clampedEnd = clampUnit(endPosition)
+    let clampedStrength = clampUnit(strength)
+    let clampedFrequency = clampUnit(frequency)
     switch mode {
     case 0:
         trigger.setModeOff()
-    case 1, 2, 3:
-        // All effect modes get a uniform "resistance" feel — the per-mode
-        // variations are exposed in a future release once Apple's Swift
-        // renames stabilise across Xcode SDK revisions.
-        var strengths = GCDualSenseAdaptiveTrigger.PositionalResistiveStrengths()
-        strengths.values = (strength, strength, strength, strength,
-                            strength, strength, strength, strength,
-                            strength, strength)
-        trigger.setModeFeedback(resistiveStrengths: strengths)
-        _ = startPosition
-        _ = endPosition
-        _ = frequency
+    case 1:
+        guard #available(macOS 12.3, *) else { return false }
+        let startIndex = dualSenseStepIndex(for: clampedStart)
+        var values = Array(repeating: Float(0), count: 10)
+        for idx in startIndex..<values.count {
+            values[idx] = clampedStrength
+        }
+        trigger.setModeFeedback(resistiveStrengths: makeResistiveStrengths(values))
+    case 2:
+        guard #available(macOS 12.3, *), clampedEnd > clampedStart else { return false }
+        let startIndex = dualSenseStepIndex(for: clampedStart)
+        let endIndex = dualSenseStepIndex(for: clampedEnd)
+        var values = Array(repeating: Float(0), count: 10)
+        for idx in startIndex...endIndex {
+            values[idx] = clampedStrength
+        }
+        trigger.setModeFeedback(resistiveStrengths: makeResistiveStrengths(values))
+    case 3:
+        guard #available(macOS 12.3, *) else { return false }
+        let startIndex = dualSenseStepIndex(for: clampedStart)
+        var values = Array(repeating: Float(0), count: 10)
+        for idx in startIndex..<values.count {
+            values[idx] = clampedStrength
+        }
+        trigger.setModeVibration(amplitudes: makeAmplitudes(values), frequency: clampedFrequency)
+    case 4:
+        guard #available(macOS 12.3, *), clampedEnd > clampedStart else { return false }
+        let startIndex = dualSenseStepIndex(for: clampedStart)
+        let endIndex = dualSenseStepIndex(for: clampedEnd)
+        var values = Array(repeating: Float(0), count: 10)
+        if startIndex == endIndex {
+            values[startIndex] = clampedFrequency
+        } else {
+            for idx in startIndex...endIndex {
+                let ratio = Float(idx - startIndex) / Float(endIndex - startIndex)
+                values[idx] = clampedStrength + ((clampedFrequency - clampedStrength) * ratio)
+            }
+        }
+        trigger.setModeFeedback(resistiveStrengths: makeResistiveStrengths(values))
     default:
         return false
     }

@@ -1,17 +1,13 @@
 //! API-surface coverage harness for `gamecontroller`.
 //!
-//! `GameController` is an Obj-C / Swift framework. v0.1 wraps a *focused
-//! subset*: enumeration + extendedGamepad polling. The full framework
-//! has 60+ headers covering haptics, light bars, motion sensors, Apple
-//! Pencil, etc. — those land in v0.2+.
-//!
-//! This harness verifies the surface we DO wrap is referenced from the
-//! Swift bridge (header-based, Obj-C `@interface` parsing — same
-//! pattern as speech-rs / apple-vision / avassetwriter).
+//! The crate now wraps the main `GCController` discovery/current-controller
+//! surface plus the legacy `gamepad` / `microGamepad` / `extendedGamepad`
+//! profiles, `GCPhysicalInputProfile`, and `DualSense` trigger readback.
+//! This test keeps the Swift bridge aligned with those headers.
 
 #![allow(clippy::cast_precision_loss, clippy::iter_on_single_items)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -40,16 +36,19 @@ fn read_header(name: &str) -> String {
     )))
 }
 
-fn extract_interface(header: &str, type_name: &str) -> String {
+fn extract_interfaces(header: &str, type_name: &str) -> String {
     let needle = regex_lite::Regex::new(&format!(r"@interface\s+{type_name}\b")).unwrap();
-    let Some(start) = needle.find(header) else {
-        return String::new();
-    };
-    let rest = &header[start.start()..];
-    let Some(end_off) = rest.find("@end") else {
-        return rest.to_string();
-    };
-    rest[..end_off].to_string()
+    let mut out = String::new();
+    for m in needle.find_iter(header) {
+        let rest = &header[m.start()..];
+        let Some(end_off) = rest.find("@end") else {
+            out.push_str(rest);
+            break;
+        };
+        out.push_str(&rest[..end_off]);
+        out.push('\n');
+    }
+    out
 }
 
 fn extract_member_surface(body: &str) -> BTreeSet<String> {
@@ -73,13 +72,64 @@ fn extract_member_surface(body: &str) -> BTreeSet<String> {
     out
 }
 
-fn references_in_bridge(symbols: &BTreeSet<String>) -> BTreeSet<String> {
+fn aliases() -> BTreeMap<&'static str, Vec<&'static str>> {
+    BTreeMap::from([
+        ("attachedToDevice", vec!["isAttachedToDevice"]),
+        (
+            "startWirelessControllerDiscoveryWithCompletionHandler",
+            vec!["startWirelessControllerDiscovery"],
+        ),
+        ("objectForKeyedSubscript", vec!["profile[alias]"]),
+        (
+            "mappedElementAliasForPhysicalInputName",
+            vec!["mappedElementAlias"],
+        ),
+        (
+            "mappedPhysicalInputNamesForElementAlias",
+            vec!["mappedPhysicalInputNames"],
+        ),
+        (
+            "setModeFeedbackWithStartPosition",
+            vec!["gc_dualsense_set_trigger_mode"],
+        ),
+        (
+            "setModeWeaponWithStartPosition",
+            vec!["gc_dualsense_set_trigger_mode"],
+        ),
+        (
+            "setModeVibrationWithStartPosition",
+            vec!["gc_dualsense_set_trigger_mode"],
+        ),
+        (
+            "setModeSlopeFeedbackWithStartPosition",
+            vec!["gc_dualsense_set_trigger_mode"],
+        ),
+        ("setModeFeedbackWithResistiveStrengths", vec!["setModeFeedback"]),
+        ("setModeVibrationWithAmplitudes", vec!["setModeVibration"]),
+    ])
+}
+
+fn contains_symbol(haystack: &str, symbol: &str) -> bool {
+    if symbol.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '_') {
+        let pattern = format!(r"\b{}\b", regex_lite::escape(symbol));
+        regex_lite::Regex::new(&pattern).unwrap().is_match(haystack)
+    } else {
+        haystack.contains(symbol)
+    }
+}
+
+fn references_in_bridge(
+    symbols: &BTreeSet<String>,
+    alias_map: &BTreeMap<&'static str, Vec<&'static str>>,
+) -> BTreeSet<String> {
     let bridge = read_bridge();
     symbols
         .iter()
         .filter(|name| {
-            let pattern = format!(r"\b{}\b", regex_lite::escape(name));
-            regex_lite::Regex::new(&pattern).unwrap().is_match(&bridge)
+            contains_symbol(&bridge, name)
+                || alias_map
+                    .get(name.as_str())
+                    .is_some_and(|alts| alts.iter().any(|alt| contains_symbol(&bridge, alt)))
         })
         .cloned()
         .collect()
@@ -116,36 +166,87 @@ fn omitted_set<const N: usize>(items: [&str; N]) -> BTreeSet<String> {
     items.into_iter().map(String::from).collect()
 }
 
+fn coverage(type_name: &str, header_name: &str, omitted: &BTreeSet<String>) {
+    let header = read_header(header_name);
+    let body = extract_interfaces(&header, type_name);
+    let apple = extract_member_surface(&body);
+    let ours = references_in_bridge(&apple, &aliases());
+    report(type_name, &apple, &ours, omitted);
+}
+
 #[test]
 fn gc_controller_coverage() {
-    let header = read_header("GCController");
-    let body = extract_interface(&header, "GCController");
-    let apple = extract_member_surface(&body);
-    let ours = references_in_bridge(&apple);
     let omitted = omitted_set([
-        // Connect/disconnect callbacks — v0.2 needs run-loop integration.
         "controllerPausedHandler",
-        "shouldMonitorBackgroundEvents",
-        "startWirelessControllerDiscoveryWithCompletionHandler",
-        "stopWirelessControllerDiscovery",
-        "controllers",
-        "current",
-        // Modern unified `input` / battery / motion / haptics / light /
-        // microGamepad / DualSense — v0.2+.
-        "input",
-        "physicalInputProfile",
-        "battery",
-        "motion",
-        "light",
-        "haptics",
-        "microGamepad",
-        "gamepad",
-        // HID device interop — would shadow iohidmanager-rs; skip in v0.1.
         "supportsHIDDevice",
-        // The `attachedToDevice` getter is exposed via the `is_attached_to_device`
-        // bridge field; the bare property name doesn't appear in the
-        // bridge text since Swift uses the `getter=isAttachedToDevice` form.
-        "attachedToDevice",
+        "snapshot",
+        "isSnapshot",
+        "capture",
+        "controllerWithMicroGamepad",
+        "controllerWithExtendedGamepad",
     ]);
-    report("GCController", &apple, &ours, &omitted);
+    coverage("GCController", "GCController", &omitted);
+}
+
+#[test]
+fn gc_physical_input_profile_coverage() {
+    let omitted = omitted_set(["valueDidChangeHandler", "setStateFromPhysicalInput"]);
+    coverage(
+        "GCPhysicalInputProfile",
+        "GCPhysicalInputProfile",
+        &omitted,
+    );
+}
+
+#[test]
+fn gc_gamepad_coverage() {
+    let omitted = omitted_set(["valueChangedHandler", "saveSnapshot"]);
+    coverage("GCGamepad", "GCGamepad", &omitted);
+}
+
+#[test]
+fn gc_micro_gamepad_coverage() {
+    let omitted = omitted_set(["valueChangedHandler", "saveSnapshot", "setStateFromMicroGamepad"]);
+    coverage("GCMicroGamepad", "GCMicroGamepad", &omitted);
+}
+
+#[test]
+fn gc_extended_gamepad_coverage() {
+    let omitted = omitted_set([
+        "valueChangedHandler",
+        "saveSnapshot",
+        "setStateFromExtendedGamepad",
+    ]);
+    coverage("GCExtendedGamepad", "GCExtendedGamepad", &omitted);
+}
+
+#[test]
+fn gc_dualsense_gamepad_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCDualSenseGamepad", "GCDualSenseGamepad", &omitted);
+}
+
+#[test]
+fn gc_dualsense_adaptive_trigger_coverage() {
+    let omitted = omitted_set([]);
+    coverage(
+        "GCDualSenseAdaptiveTrigger",
+        "GCDualSenseAdaptiveTrigger",
+        &omitted,
+    );
+}
+
+#[test]
+fn gc_motion_coverage() {
+    let omitted = omitted_set([
+        "valueChangedHandler",
+        "hasAttitudeAndRotationRate",
+        "setGravity",
+        "setUserAcceleration",
+        "setAcceleration",
+        "setAttitude",
+        "setRotationRate",
+        "setStateFromMotion",
+    ]);
+    coverage("GCMotion", "GCMotion", &omitted);
 }

@@ -1,9 +1,16 @@
 //! High-level `Controller` snapshot type.
 
+mod details;
+
 use core::ffi::c_void;
 use core::ptr;
+use std::sync::Mutex;
+
+use serde::{Deserialize, Serialize};
 
 use crate::ffi;
+
+pub use details::*;
 
 /// A point-in-time snapshot of one connected `GCController`.
 #[derive(Debug, Clone, PartialEq)]
@@ -131,7 +138,8 @@ fn take_string(p: *mut core::ffi::c_char) -> String {
 // ---- v0.2: motion / battery / haptics / light snapshots ----
 
 /// Battery charging state mirroring `GCDeviceBattery.batteryState`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BatteryState {
     Unknown,
@@ -290,11 +298,13 @@ pub struct MouseButtons {
 /// `NSNotificationCenter` observer on scope exit.
 pub struct ConnectionWatcher {
     token: *mut core::ffi::c_void,
-    _callback: Box<dyn Fn(bool) + Send + Sync + 'static>,
+    _callback: Box<Box<dyn Fn(bool) + Send + Sync + 'static>>,
 }
 
 unsafe impl Send for ConnectionWatcher {}
 unsafe impl Sync for ConnectionWatcher {}
+
+static DISCOVERY_CALLBACK: Mutex<Option<Box<dyn FnOnce() + Send + 'static>>> = Mutex::new(None);
 
 impl Drop for ConnectionWatcher {
     fn drop(&mut self) {
@@ -338,6 +348,64 @@ where
         token,
         _callback: unsafe { Box::from_raw(raw_box) },
     }
+}
+
+unsafe extern "C" fn discovery_trampoline(_user_info: *mut c_void) {
+    if let Ok(mut slot) = DISCOVERY_CALLBACK.lock() {
+        if let Some(callback) = slot.take() {
+            callback();
+        }
+    }
+}
+
+/// Start `GameController`'s wireless discovery flow.
+///
+/// Apple delivers the completion handler on the main run loop once the current
+/// discovery session finishes. Use [`watch_connections`] if you also want live
+/// connect and disconnect notifications during discovery.
+pub fn start_wireless_controller_discovery() {
+    if let Ok(mut slot) = DISCOVERY_CALLBACK.lock() {
+        *slot = None;
+    }
+    unsafe { ffi::gc_start_wireless_controller_discovery(None, ptr::null_mut()) }
+}
+
+/// Start wireless controller discovery and invoke `callback` once the discovery
+/// session's completion handler fires.
+pub fn start_wireless_controller_discovery_with_callback<F>(callback: F)
+where
+    F: FnOnce() + Send + 'static,
+{
+    if let Ok(mut slot) = DISCOVERY_CALLBACK.lock() {
+        *slot = Some(Box::new(callback));
+    }
+    unsafe {
+        ffi::gc_start_wireless_controller_discovery(
+            Some(discovery_trampoline),
+            ptr::null_mut(),
+        );
+    }
+}
+
+/// Stop the current wireless controller discovery session, if any.
+pub fn stop_wireless_controller_discovery() {
+    if let Ok(mut slot) = DISCOVERY_CALLBACK.lock() {
+        *slot = None;
+    }
+    unsafe { ffi::gc_stop_wireless_controller_discovery() }
+}
+
+/// Whether `GameController` should keep routing controller events while your app
+/// is in the background.
+#[must_use]
+pub fn should_monitor_background_events() -> bool {
+    unsafe { ffi::gc_should_monitor_background_events() }
+}
+
+/// Control whether `GameController` keeps routing controller events while your
+/// app is in the background.
+pub fn set_should_monitor_background_events(enabled: bool) {
+    unsafe { ffi::gc_set_should_monitor_background_events(enabled) }
 }
 
 /// Set the light bar / status LED color on the first connected
@@ -448,6 +516,28 @@ pub fn dualsense_trigger_vibration(
             0.0,
             amplitude,
             frequency,
+        )
+    }
+}
+
+/// Apply slope feedback on a `DualSense` trigger, varying the force between two
+/// strength values across a trigger range.
+#[must_use]
+pub fn dualsense_trigger_slope_feedback(
+    which: DualSenseTrigger,
+    start_position: f32,
+    end_position: f32,
+    start_strength: f32,
+    end_strength: f32,
+) -> bool {
+    unsafe {
+        ffi::gc_dualsense_set_trigger_mode(
+            which as i32,
+            4,
+            start_position,
+            end_position,
+            start_strength,
+            end_strength,
         )
     }
 }
