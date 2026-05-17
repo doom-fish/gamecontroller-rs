@@ -15,7 +15,9 @@ impl fmt::Display for GameControllerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NullBridgeResponse => f.write_str("GameController bridge returned null"),
-            Self::InvalidUtf8(err) => write!(f, "GameController bridge returned invalid UTF-8: {err}"),
+            Self::InvalidUtf8(err) => {
+                write!(f, "GameController bridge returned invalid UTF-8: {err}")
+            }
             Self::Json(err) => write!(f, "GameController bridge returned invalid JSON: {err}"),
         }
     }
