@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.2] - 2026-05-18
+
+### Fixed
+
+- **Panic safety**: `connection_trampoline`, `notification_trampoline`, and
+  `discovery_trampoline` now wrap user-closure calls in `catch_unwind` via a
+  private `catch_cb_panic` helper, preventing UB from panics unwinding across
+  the `extern "C"` ABI boundary.
+- **SAFETY comments**: added `// SAFETY:` annotations to every `unsafe { }`
+  block and `unsafe impl` in `src/controller/mod.rs` (42 sites) and
+  `src/async_api.rs` (20 sites).
+
 ## [0.8.1] - 2026-05-17
 
 ### Changed

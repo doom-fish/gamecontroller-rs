@@ -5,7 +5,11 @@ mod details;
 
 use core::ffi::c_void;
 use core::ptr;
-use std::{ffi::CString, sync::Mutex};
+use std::{
+    ffi::CString,
+    panic::{catch_unwind, AssertUnwindSafe},
+    sync::Mutex,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -79,6 +83,7 @@ pub struct Dpad {
 pub fn connected_controllers() -> Vec<Controller> {
     let mut array: *mut c_void = ptr::null_mut();
     let mut count: usize = 0;
+    // SAFETY: `array` and `count` are valid stack locals passed as out-pointers for Swift to fill.
     let status = unsafe { ffi::gc_connected_controllers(&mut array, &mut count) };
     if status != 0 || array.is_null() || count == 0 {
         return Vec::new();
@@ -86,6 +91,7 @@ pub fn connected_controllers() -> Vec<Controller> {
     let typed = array.cast::<ffi::ControllerInfoRaw>();
     let mut out = Vec::with_capacity(count);
     for i in 0..count {
+        // SAFETY: `typed` points to `count` contiguous entries returned by Swift, `i < count`, and the array stays live until we free it below.
         let raw = unsafe { &*typed.add(i) };
         out.push(Controller {
             vendor_name: take_string(raw.vendor_name),
@@ -122,6 +128,7 @@ pub fn connected_controllers() -> Vec<Controller> {
             },
         });
     }
+    // SAFETY: `array`/`count` are the exact allocation returned by `gc_connected_controllers` and are freed exactly once here.
     unsafe { ffi::gc_controller_infos_free(array, count) };
     out
 }
@@ -130,9 +137,11 @@ fn take_string(p: *mut core::ffi::c_char) -> String {
     if p.is_null() {
         return String::new();
     }
+    // SAFETY: `p` is a non-null NUL-terminated string allocated by Swift and remains valid until `gc_string_free` below.
     let s = unsafe { core::ffi::CStr::from_ptr(p) }
         .to_string_lossy()
         .into_owned();
+    // SAFETY: `p` is the exact pointer returned by Swift and is freed exactly once after copying into Rust.
     unsafe { ffi::gc_string_free(p) };
     s
 }
@@ -173,6 +182,7 @@ pub struct ControllerExtras {
 #[must_use]
 pub fn first_controller_extras() -> Option<ControllerExtras> {
     let mut raw = empty_extras_raw();
+    // SAFETY: `raw` is a valid stack-allocated out-struct for Swift to initialize.
     let ok = unsafe { ffi::gc_first_controller_extra(&mut raw) };
     if !ok {
         return None;
@@ -186,6 +196,7 @@ pub fn first_controller_extras() -> Option<ControllerExtras> {
 pub fn all_controller_extras() -> Vec<ControllerExtras> {
     const MAX: usize = 8;
     let mut buf: Vec<ffi::ExtraInfoRaw> = (0..MAX).map(|_| empty_extras_raw()).collect();
+    // SAFETY: `buf` has capacity for `MAX` elements and its pointer is valid for Swift to write up to that many entries.
     let n = unsafe { ffi::gc_all_controllers_extras(buf.as_mut_ptr(), MAX) };
     buf.truncate(n);
     buf.iter().map(extras_from_raw).collect()
@@ -246,6 +257,7 @@ const fn extras_from_raw(raw: &ffi::ExtraInfoRaw) -> ControllerExtras {
 /// True if a mouse is currently connected (macOS 11+).
 #[must_use]
 pub fn mouse_is_connected() -> bool {
+    // SAFETY: this is a read-only FFI query with no preconditions.
     unsafe { ffi::gc_mouse_is_connected() }
 }
 
@@ -256,6 +268,7 @@ pub fn mouse_button_states() -> Option<MouseButtons> {
     let mut l = false;
     let mut r = false;
     let mut m = false;
+    // SAFETY: `l`, `r`, and `m` are valid stack locals passed as out-pointers for Swift to fill.
     let ok = unsafe { ffi::gc_mouse_button_states(&mut l, &mut r, &mut m) };
     if !ok {
         return None;
@@ -270,12 +283,14 @@ pub fn mouse_button_states() -> Option<MouseButtons> {
 /// True if a keyboard is currently connected (macOS 11+).
 #[must_use]
 pub fn keyboard_is_connected() -> bool {
+    // SAFETY: this is a read-only FFI query with no preconditions.
     unsafe { ffi::gc_keyboard_is_connected() }
 }
 
 /// True if ANY key is currently pressed on the coalesced keyboard.
 #[must_use]
 pub fn keyboard_any_key_pressed() -> bool {
+    // SAFETY: this is a read-only FFI query with no preconditions.
     unsafe { ffi::gc_keyboard_any_key_pressed() }
 }
 
@@ -283,6 +298,7 @@ pub fn keyboard_any_key_pressed() -> bool {
 /// (e.g. `4 = "a"`, `40 = enter`, `44 = space`).
 #[must_use]
 pub fn keyboard_is_key_pressed(keycode: isize) -> bool {
+    // SAFETY: this is a read-only FFI query and any `isize` keycode value is accepted by the bridge.
     unsafe { ffi::gc_keyboard_is_key_pressed(keycode) }
 }
 
@@ -309,16 +325,32 @@ pub struct NotificationWatcher {
     _callback: Box<Box<dyn Fn() + Send + Sync + 'static>>,
 }
 
+// SAFETY: `token` is an opaque retained Swift registration token, callbacks are serialized by Swift on one queue, and `_callback` is `Send + Sync`.
 unsafe impl Send for ConnectionWatcher {}
+// SAFETY: `token` is an opaque retained Swift registration token, callbacks are serialized by Swift on one queue, and `_callback` is `Send + Sync`.
 unsafe impl Sync for ConnectionWatcher {}
+// SAFETY: `token` is an opaque retained Swift registration token, callbacks are serialized by Swift on one queue, and `_callback` is `Send + Sync`.
 unsafe impl Send for NotificationWatcher {}
+// SAFETY: `token` is an opaque retained Swift registration token, callbacks are serialized by Swift on one queue, and `_callback` is `Send + Sync`.
 unsafe impl Sync for NotificationWatcher {}
 
 static DISCOVERY_CALLBACK: Mutex<Option<Box<dyn FnOnce() + Send + 'static>>> = Mutex::new(None);
 
+fn catch_cb_panic(site: &str, f: impl FnOnce()) {
+    if let Err(payload) = catch_unwind(AssertUnwindSafe(f)) {
+        let message = payload
+            .downcast_ref::<&str>()
+            .map(|message| (*message).to_owned())
+            .or_else(|| payload.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "non-string panic payload".to_owned());
+        eprintln!("doom-fish-utils: panic in {site} caught at C ABI boundary: {message}");
+    }
+}
+
 impl Drop for ConnectionWatcher {
     fn drop(&mut self) {
         if !self.token.is_null() {
+            // SAFETY: `self.token` came from the matching Swift registration call, is non-null here, and we unregister it exactly once before nulling it out.
             unsafe { ffi::gc_unregister_connection_callback(self.token) };
             self.token = core::ptr::null_mut();
         }
@@ -328,6 +360,7 @@ impl Drop for ConnectionWatcher {
 impl Drop for NotificationWatcher {
     fn drop(&mut self) {
         if !self.token.is_null() {
+            // SAFETY: `self.token` came from the matching Swift registration call, is non-null here, and we unregister it exactly once before nulling it out.
             unsafe { ffi::gc_unregister_notification_callback(self.token) };
             self.token = core::ptr::null_mut();
         }
@@ -339,8 +372,9 @@ unsafe extern "C" fn connection_trampoline(user_info: *mut core::ffi::c_void, va
     if cb_ptr.is_null() {
         return;
     }
+    // SAFETY: `cb_ptr` is the boxed callback pointer stored in `_callback`; it remains valid for the lifetime of the watcher registration.
     let cb = unsafe { &*cb_ptr };
-    cb(value);
+    catch_cb_panic("connection_trampoline", || cb(value));
 }
 
 unsafe extern "C" fn notification_trampoline(user_info: *mut core::ffi::c_void) {
@@ -348,8 +382,9 @@ unsafe extern "C" fn notification_trampoline(user_info: *mut core::ffi::c_void) 
     if cb_ptr.is_null() {
         return;
     }
+    // SAFETY: `cb_ptr` is the boxed callback pointer stored in `_callback`; it remains valid for the lifetime of the watcher registration.
     let cb = unsafe { &*cb_ptr };
-    cb();
+    catch_cb_panic("notification_trampoline", cb);
 }
 
 fn watch_connection_with<F>(
@@ -361,9 +396,11 @@ where
 {
     let boxed: Box<dyn Fn(bool) + Send + Sync + 'static> = Box::new(callback);
     let raw_box = Box::into_raw(Box::new(boxed));
+    // SAFETY: `connection_trampoline` has the expected C ABI and `raw_box` points to a live boxed callback stored into `_callback` below.
     let token = unsafe { register(connection_trampoline, raw_box.cast::<c_void>()) };
     ConnectionWatcher {
         token,
+        // SAFETY: `raw_box` was produced by `Box::into_raw` above and is reconstituted exactly once into `_callback`.
         _callback: unsafe { Box::from_raw(raw_box) },
     }
 }
@@ -377,9 +414,11 @@ where
 {
     let boxed: Box<dyn Fn() + Send + Sync + 'static> = Box::new(callback);
     let raw_box = Box::into_raw(Box::new(boxed));
+    // SAFETY: `notification_trampoline` has the expected C ABI and `raw_box` points to a live boxed callback stored into `_callback` below.
     let token = unsafe { register(notification_trampoline, raw_box.cast::<c_void>()) };
     NotificationWatcher {
         token,
+        // SAFETY: `raw_box` was produced by `Box::into_raw` above and is reconstituted exactly once into `_callback`.
         _callback: unsafe { Box::from_raw(raw_box) },
     }
 }
@@ -460,7 +499,7 @@ where
 unsafe extern "C" fn discovery_trampoline(_user_info: *mut c_void) {
     if let Ok(mut slot) = DISCOVERY_CALLBACK.lock() {
         if let Some(callback) = slot.take() {
-            callback();
+            catch_cb_panic("discovery_trampoline", callback);
         }
     }
 }
@@ -474,6 +513,7 @@ pub fn start_wireless_controller_discovery() {
     if let Ok(mut slot) = DISCOVERY_CALLBACK.lock() {
         *slot = None;
     }
+    // SAFETY: the no-callback discovery variant accepts a null context pointer and has no additional preconditions.
     unsafe { ffi::gc_start_wireless_controller_discovery(None, ptr::null_mut()) }
 }
 
@@ -486,6 +526,7 @@ where
     if let Ok(mut slot) = DISCOVERY_CALLBACK.lock() {
         *slot = Some(Box::new(callback));
     }
+    // SAFETY: `discovery_trampoline` has the expected C ABI and a null context is valid because the callback reads the global slot.
     unsafe {
         ffi::gc_start_wireless_controller_discovery(Some(discovery_trampoline), ptr::null_mut());
     }
@@ -496,6 +537,7 @@ pub fn stop_wireless_controller_discovery() {
     if let Ok(mut slot) = DISCOVERY_CALLBACK.lock() {
         *slot = None;
     }
+    // SAFETY: stopping discovery is a plain FFI command with no preconditions.
     unsafe { ffi::gc_stop_wireless_controller_discovery() }
 }
 
@@ -503,12 +545,14 @@ pub fn stop_wireless_controller_discovery() {
 /// is in the background.
 #[must_use]
 pub fn should_monitor_background_events() -> bool {
+    // SAFETY: this is a read-only FFI query with no preconditions.
     unsafe { ffi::gc_should_monitor_background_events() }
 }
 
 /// Control whether `GameController` keeps routing controller events while your
 /// app is in the background.
 pub fn set_should_monitor_background_events(enabled: bool) {
+    // SAFETY: `enabled` is passed by value and the Swift setter has no extra preconditions.
     unsafe { ffi::gc_set_should_monitor_background_events(enabled) }
 }
 
@@ -517,6 +561,7 @@ pub fn set_should_monitor_background_events(enabled: bool) {
 /// Returns `false` if no controller is connected or it has no light.
 #[must_use]
 pub fn set_first_controller_light(red: f32, green: f32, blue: f32) -> bool {
+    // SAFETY: the bridge only reads the numeric light values; there are no extra preconditions.
     unsafe { ffi::gc_first_controller_set_light(red, green, blue) }
 }
 
@@ -534,6 +579,7 @@ pub fn set_first_controller_light_color(color: Color) -> bool {
 /// controller or the index is out of range.
 #[must_use]
 pub fn set_first_controller_player_index(index: i32) -> bool {
+    // SAFETY: the bridge only reads the integer player index; there are no extra preconditions.
     unsafe { ffi::gc_first_controller_set_player_index(index) }
 }
 
@@ -542,6 +588,7 @@ pub fn set_first_controller_player_index(index: i32) -> bool {
 /// (wired) or none is connected.
 #[must_use]
 pub fn first_controller_battery_level() -> f32 {
+    // SAFETY: this is a read-only FFI query with no preconditions.
     unsafe { ffi::gc_first_controller_battery_level() }
 }
 
@@ -552,6 +599,7 @@ pub fn first_controller_battery_level() -> f32 {
 /// Haptics failed to start.
 #[must_use]
 pub fn rumble_first_controller(intensity: f32, sharpness: f32, duration: f64) -> bool {
+    // SAFETY: the bridge only reads the numeric haptics parameters; there are no extra preconditions.
     unsafe { ffi::gc_first_controller_rumble(intensity, sharpness, duration) }
 }
 
@@ -566,6 +614,7 @@ pub fn rumble_first_controller_with_locality(
     let Ok(locality) = CString::new(locality.as_str()) else {
         return false;
     };
+    // SAFETY: `locality` is a live NUL-terminated CString for this call and the remaining arguments are plain numeric values.
     unsafe {
         ffi::gc_first_controller_rumble_with_locality(
             locality.as_ptr(),
@@ -586,6 +635,7 @@ pub enum DualSenseTrigger {
 /// True if a `DualSense` controller is currently connected.
 #[must_use]
 pub fn dualsense_is_connected() -> bool {
+    // SAFETY: this is a read-only FFI query with no preconditions.
     unsafe { ffi::gc_dualsense_is_connected() }
 }
 
@@ -593,6 +643,7 @@ pub fn dualsense_is_connected() -> bool {
 /// trigger. Wraps `setModeOff`.
 #[must_use]
 pub fn dualsense_trigger_off(which: DualSenseTrigger) -> bool {
+    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
     unsafe { ffi::gc_dualsense_set_trigger_mode(which as i32, 0, 0.0, 0.0, 0.0, 0.0) }
 }
 
@@ -605,6 +656,7 @@ pub fn dualsense_trigger_feedback(
     start_position: f32,
     strength: f32,
 ) -> bool {
+    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
     unsafe {
         ffi::gc_dualsense_set_trigger_mode(which as i32, 1, start_position, 0.0, strength, 0.0)
     }
@@ -619,6 +671,7 @@ pub fn dualsense_trigger_weapon(
     end_position: f32,
     strength: f32,
 ) -> bool {
+    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
     unsafe {
         ffi::gc_dualsense_set_trigger_mode(
             which as i32,
@@ -640,6 +693,7 @@ pub fn dualsense_trigger_vibration(
     amplitude: f32,
     frequency: f32,
 ) -> bool {
+    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
     unsafe {
         ffi::gc_dualsense_set_trigger_mode(
             which as i32,
@@ -662,6 +716,7 @@ pub fn dualsense_trigger_slope_feedback(
     start_strength: f32,
     end_strength: f32,
 ) -> bool {
+    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
     unsafe {
         ffi::gc_dualsense_set_trigger_mode(
             which as i32,
@@ -680,6 +735,7 @@ pub fn dualsense_trigger_feedback_resistive_strengths(
     which: DualSenseTrigger,
     strengths: GCDualSenseAdaptiveTriggerPositionalResistiveStrengths,
 ) -> bool {
+    // SAFETY: `strengths.values.as_ptr()` is valid for `len` reads for the duration of this call because the array lives on the stack.
     unsafe {
         ffi::gc_dualsense_set_trigger_feedback_resistive_strengths(
             which as i32,
@@ -696,6 +752,7 @@ pub fn dualsense_trigger_vibration_amplitudes(
     amplitudes: GCDualSenseAdaptiveTriggerPositionalAmplitudes,
     frequency: f32,
 ) -> bool {
+    // SAFETY: `amplitudes.values.as_ptr()` is valid for `len` reads for the duration of this call because the array lives on the stack.
     unsafe {
         ffi::gc_dualsense_set_trigger_vibration_amplitudes(
             which as i32,
