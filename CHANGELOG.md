@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.0] - 2026-05-17
+
+### Added
+
+- `async` Cargo feature gate and `src/async_api.rs` module with six
+  `BoundedAsyncStream<T>` event-stream surfaces:
+  - `ControllerConnectionStream` — `GCControllerDidConnect` /
+    `GCControllerDidDisconnect` notifications
+  - `GamepadValueStream` — `GCExtendedGamepad.valueChangedHandler`
+  - `KeyboardKeyStream` — `GCKeyboard.keyboardInput.keyChangedHandler`
+    (macOS 11.0+)
+  - `MouseInputStream` — `GCMouse.mouseInput` moved / button handlers
+    (macOS 11.0+)
+  - `MotionStream` — `GCMotion.valueChangedHandler`
+  - `MicroGamepadValueStream` — `GCMicroGamepad.valueChangedHandler`
+- Swift bridge thunks in `AsyncStream.swift` backing each stream surface.
+- Example `examples/06_async_streams.rs` demonstrating all six surfaces.
+- Integration tests in `tests/async_stream_tests.rs`.
+
 ## [0.7.2] - 2026-05-17
 
 ### Added

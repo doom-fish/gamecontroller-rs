@@ -1,6 +1,6 @@
 [package]
 name = "gamecontroller"
-version = "0.7.2"
+version = "0.8.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/doom-fish/gamecontroller-rs"
@@ -37,12 +37,18 @@ cargo = { level = "warn", priority = -1 }
 name = "gamecontroller"
 crate-type = ["lib"]
 
+[features]
+default = []
+async = ["dep:doom-fish-utils"]
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+doom-fish-utils = { path = "../doom-fish-utils", version = "0.1", optional = true }
 
 [dev-dependencies]
 regex-lite = "0.1"
+pollster = "0.3"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -67,6 +73,10 @@ name = "04_device_snapshots"
 
 [[example]]
 name = "05_input_surface"
+
+[[example]]
+name = "06_async_streams"
+required-features = ["async"]
 
 [profile.release]
 debug = "full"
