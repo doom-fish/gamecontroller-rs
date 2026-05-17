@@ -30,15 +30,40 @@ import CoreHaptics
 
 private var hapticEngines: [ObjectIdentifier: CHHapticEngine] = [:]
 
-@_cdecl("gc_first_controller_rumble")
-public func gc_first_controller_rumble(
-    _ intensity: Float,
-    _ sharpness: Float,
-    _ duration: Double
+@available(macOS 11.0, *)
+private func hapticsLocality(from value: String) -> GCHapticsLocality? {
+    switch value {
+    case GCHapticsLocality.default.rawValue:
+        return .default
+    case GCHapticsLocality.all.rawValue:
+        return .all
+    case GCHapticsLocality.handles.rawValue:
+        return .handles
+    case GCHapticsLocality.leftHandle.rawValue:
+        return .leftHandle
+    case GCHapticsLocality.rightHandle.rawValue:
+        return .rightHandle
+    case GCHapticsLocality.triggers.rawValue:
+        return .triggers
+    case GCHapticsLocality.leftTrigger.rawValue:
+        return .leftTrigger
+    case GCHapticsLocality.rightTrigger.rawValue:
+        return .rightTrigger
+    default:
+        return nil
+    }
+}
+
+@available(macOS 11.0, *)
+private func playRumble(
+    controller: GCController,
+    locality: GCHapticsLocality,
+    intensity: Float,
+    sharpness: Float,
+    duration: Double
 ) -> Bool {
-    guard let controller = GCController.controllers().first,
-          let haptics = controller.haptics,
-          let engine = haptics.createEngine(withLocality: .default)
+    guard let haptics = controller.haptics,
+          let engine = haptics.createEngine(withLocality: locality)
     else {
         return false
     }
@@ -80,9 +105,60 @@ public func gc_first_controller_rumble(
         return false
     }
 }
+
+@_cdecl("gc_first_controller_rumble")
+public func gc_first_controller_rumble(
+    _ intensity: Float,
+    _ sharpness: Float,
+    _ duration: Double
+) -> Bool {
+    guard #available(macOS 11.0, *), let controller = GCController.controllers().first else {
+        return false
+    }
+    return playRumble(
+        controller: controller,
+        locality: .default,
+        intensity: intensity,
+        sharpness: sharpness,
+        duration: duration
+    )
+}
+
+@_cdecl("gc_first_controller_rumble_with_locality")
+public func gc_first_controller_rumble_with_locality(
+    _ locality: UnsafePointer<CChar>?,
+    _ intensity: Float,
+    _ sharpness: Float,
+    _ duration: Double
+) -> Bool {
+    guard #available(macOS 11.0, *),
+          let controller = GCController.controllers().first,
+          let locality,
+          let typedLocality = hapticsLocality(from: String(cString: locality))
+    else {
+        return false
+    }
+    return playRumble(
+        controller: controller,
+        locality: typedLocality,
+        intensity: intensity,
+        sharpness: sharpness,
+        duration: duration
+    )
+}
 #else
 @_cdecl("gc_first_controller_rumble")
 public func gc_first_controller_rumble(
+    _ intensity: Float,
+    _ sharpness: Float,
+    _ duration: Double
+) -> Bool {
+    false
+}
+
+@_cdecl("gc_first_controller_rumble_with_locality")
+public func gc_first_controller_rumble_with_locality(
+    _ locality: UnsafePointer<CChar>?,
     _ intensity: Float,
     _ sharpness: Float,
     _ duration: Double

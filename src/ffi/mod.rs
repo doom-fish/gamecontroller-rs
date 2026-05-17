@@ -5,6 +5,7 @@
 use core::ffi::{c_char, c_void};
 
 pub type DiscoveryCallback = unsafe extern "C" fn(user_info: *mut c_void);
+pub type NotificationCallback = unsafe extern "C" fn(user_info: *mut c_void);
 
 #[repr(C)]
 pub struct ControllerInfoRaw {
@@ -63,13 +64,41 @@ extern "C" {
     pub fn gc_controller_infos_free(array: *mut c_void, count: usize);
     pub fn gc_controller_details_json(current_only: bool) -> *mut c_char;
     pub fn gc_current_controller_input_source_json() -> *mut c_char;
+    pub fn gc_connected_devices_json() -> *mut c_char;
+    pub fn gc_current_controller_elements_json() -> *mut c_char;
+    pub fn gc_current_controller_physical_input_elements_json() -> *mut c_char;
 
     pub fn gc_first_controller_extra(out_info: *mut ExtraInfoRaw) -> bool;
     pub fn gc_register_connection_callback(
         callback: ConnectionCallback,
         user_info: *mut c_void,
     ) -> *mut c_void;
+    pub fn gc_register_controller_current_callback(
+        callback: ConnectionCallback,
+        user_info: *mut c_void,
+    ) -> *mut c_void;
+    pub fn gc_register_keyboard_connection_callback(
+        callback: ConnectionCallback,
+        user_info: *mut c_void,
+    ) -> *mut c_void;
+    pub fn gc_register_mouse_connection_callback(
+        callback: ConnectionCallback,
+        user_info: *mut c_void,
+    ) -> *mut c_void;
+    pub fn gc_register_mouse_current_callback(
+        callback: ConnectionCallback,
+        user_info: *mut c_void,
+    ) -> *mut c_void;
+    pub fn gc_register_racing_wheel_connection_callback(
+        callback: ConnectionCallback,
+        user_info: *mut c_void,
+    ) -> *mut c_void;
     pub fn gc_unregister_connection_callback(token: *mut c_void);
+    pub fn gc_register_controller_customizations_callback(
+        callback: NotificationCallback,
+        user_info: *mut c_void,
+    ) -> *mut c_void;
+    pub fn gc_unregister_notification_callback(token: *mut c_void);
     pub fn gc_start_wireless_controller_discovery(
         callback: Option<DiscoveryCallback>,
         user_info: *mut c_void,
@@ -82,6 +111,12 @@ extern "C" {
     pub fn gc_first_controller_set_player_index(index: i32) -> bool;
     pub fn gc_first_controller_battery_level() -> f32;
     pub fn gc_first_controller_rumble(intensity: f32, sharpness: f32, duration: f64) -> bool;
+    pub fn gc_first_controller_rumble_with_locality(
+        locality: *const c_char,
+        intensity: f32,
+        sharpness: f32,
+        duration: f64,
+    ) -> bool;
 
     pub fn gc_mouse_is_connected() -> bool;
     pub fn gc_mouse_button_states(
@@ -106,6 +141,17 @@ extern "C" {
         start_position: f32,
         end_position: f32,
         strength: f32,
+        frequency: f32,
+    ) -> bool;
+    pub fn gc_dualsense_set_trigger_feedback_resistive_strengths(
+        which: i32,
+        values: *const f32,
+        len: usize,
+    ) -> bool;
+    pub fn gc_dualsense_set_trigger_vibration_amplitudes(
+        which: i32,
+        values: *const f32,
+        len: usize,
         frequency: f32,
     ) -> bool;
 }

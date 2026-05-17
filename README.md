@@ -2,7 +2,7 @@
 
 Safe Rust bindings for Apple's [GameController](https://developer.apple.com/documentation/gamecontroller) framework on macOS.
 
-> **Status:** `0.7.1` keeps the crate snapshot-first while adding high-impact `GCKeyCode*` / `GCKey*` / `GCInput*` constants plus `GCDevicePhysicalInput` source/diff snapshots on top of the existing `GCController.input`, keyboard/mouse, racing-wheel, light, haptics, and event-controller coverage.
+> **Status:** `0.7.2` closes the remaining public-symbol gaps with generic `GCDevice` / `GCControllerElement` snapshots, typed haptics/product-category constants, locality-aware rumble, richer notification watchers, and current-controller physical-input element metadata on top of the existing `GCController.input`, keyboard/mouse, racing-wheel, light, haptics, and event-controller coverage.
 
 ## Quick start
 
@@ -50,16 +50,19 @@ fn main() -> Result<(), GameControllerError> {
 - `connected_controller_details()` / `current_controller_snapshot()` for richer JSON-backed controller/profile snapshots.
 - `current_controller_input_snapshot()` for `GCController.input` / `GCControllerLiveInput` / `GCControllerInputState` capture data.
 - `current_controller_input_source()` for direct `GCDevicePhysicalInput` live/captured/queued-diff snapshots.
-- `key_codes`, `key_names`, and `input_names` modules for high-impact `GCKeyCode*`, `GCKey*`, and `GCInput*` constants.
+- `current_controller_elements()` / `current_controller_physical_input_elements()` for legacy `GCControllerElement` metadata plus generic physical-input/source/extents snapshots.
+- `connected_devices_snapshot()` for generic `GCDevice` metadata across controllers, keyboard, mouse, and racing wheels.
+- `key_codes`, `key_names`, `input_names`, `haptics_localities`, and `product_categories` modules for the audited `GCKeyCode*`, `GCKey*`, `GCInput*`, haptics-locality, and product-category constants.
 - `keyboard_snapshot()` / `mouse_snapshot()` for richer `GCKeyboard` / `GCMouse` snapshots.
 - `connected_racing_wheels()` for macOS-only `GCRacingWheel` metadata + captured input when already acquired.
 - `event_view_controller_snapshot()` for `GCEventViewController` defaults.
 - `first_controller_battery()` / `first_controller_light()` / `first_controller_haptics()` for typed device-side snapshots.
 - `set_first_controller_light_color()` plus `set_first_controller_light()` for `GCColor` / `GCDeviceLight` mutation.
-- `watch_connections()` for connect/disconnect notifications.
+- `rumble_first_controller_with_locality()` plus `DeviceHapticsDetails::supported_locality_constants()` for typed haptics locality coverage.
+- `watch_connections()`, `watch_current_controller()`, `watch_keyboard_connections()`, `watch_mouse_connections()`, `watch_mouse_current()`, `watch_racing_wheel_connections()`, and `watch_controller_customizations()` for notification coverage.
 - `should_monitor_background_events()` / `set_should_monitor_background_events()`.
 - `start_wireless_controller_discovery()` and `stop_wireless_controller_discovery()`.
-- `dualsense_trigger_*` helpers plus `DualSenseAdaptiveTriggerState` readback in detailed snapshots.
+- `dualsense_trigger_*` helpers plus `dualsense_trigger_feedback_resistive_strengths()` / `dualsense_trigger_vibration_amplitudes()` for raw adaptive-trigger array helpers.
 
 ## Examples
 

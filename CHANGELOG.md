@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.7.2] - 2026-05-17
+
+### Added
+
+- Generic `GCDevice` / `GCControllerElement` snapshot helpers:
+  - `connected_devices_snapshot()`
+  - `current_controller_elements()`
+  - `current_controller_physical_input_elements()`
+- Typed constant/type coverage for the remaining audit tables:
+  - `haptics_localities::*` and `GCHapticsLocality`
+  - `product_categories::*` and `GCProductCategory`
+  - `POINT2_ZERO`, `GCPoint2`, and `GCEulerAngles`
+- Extra notification watchers:
+  - `watch_current_controller()`
+  - `watch_keyboard_connections()`
+  - `watch_mouse_connections()` / `watch_mouse_current()`
+  - `watch_racing_wheel_connections()`
+  - `watch_controller_customizations()`
+- Locality-aware haptics plus raw DualSense positional-array helpers:
+  - `rumble_first_controller_with_locality()`
+  - `dualsense_trigger_feedback_resistive_strengths()`
+  - `dualsense_trigger_vibration_amplitudes()`
+
+### Changed
+
+- `DeviceHapticsDetails` now offers typed locality helpers via `supported_locality_constants()` / `supports_locality()`.
+- `Quaternion` now converts to the legacy Euler-angle struct with `to_euler_angles()`.
+- `COVERAGE_AUDIT.md` now reports 100% non-exempt public-symbol coverage (426 verified / 0 gaps).
+- README and coverage docs now call out the new device/element snapshots, constants, and notification watchers.
+
 ## [0.7.1] - 2026-05-17
 
 ### Added

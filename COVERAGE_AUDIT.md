@@ -3,34 +3,41 @@
 This audit compares the public macOS `GameController.framework` surface against the safe/public Rust API and Swift bridge in `gamecontroller-rs`. It filters out symbols unavailable on macOS and treats Apple-deprecated snapshot/profile APIs as exempt per the audit instructions.
 Filtered out 7 unavailable symbols (the visionOS-only `GCStylus` family plus spatial-stylus constants).
 
-v0.7.1 closes the large exported constant tables (`GCKeyCode*`, `GCKey*`, and `GCInput*`) and adds standalone `GCDevicePhysicalInput` source/diff wrappers.
-Remaining gaps are now concentrated in notifications, generic remapping/source metadata, product-category constants, haptics locality constants, and controller-element/system-gesture APIs.
+v0.7.2 closes the remaining notifications, generic device/element metadata, haptics locality, product-category, and raw geometry/adaptive-trigger gaps.
+Public macOS symbol coverage is now complete for the non-exempt surface.
 
 SDK_PUBLIC_SYMBOLS: 444
-VERIFIED: 377
-GAPS: 49
+VERIFIED: 426
+GAPS: 0
 EXEMPT: 18
-COVERAGE_PCT: 88.50%
+COVERAGE_PCT: 100.00%
 
 ## 🟢 VERIFIED
 | Symbol | Kind | Header | Wrapped by |
 | --- | --- | --- | --- |
 | GCAcceleration | typedef struct | GCMotion.h | ControllerExtras.gravity/user_acceleration; MotionDetails.gravity/user_acceleration/acceleration |
+| GCAxis2DInput | protocol | GCAxis2DInput.h | Axis2DInputDetails; current_controller_physical_input_elements() |
 | GCAxisElement | protocol | GCAxisElement.h | NamedAxisElementState; AxisElementState |
 | GCAxisElementName | typedef | GCInputNames.h | GCAxisElementName / GCInputAxisName aliases; input_names::STEERING_WHEEL |
+| GCAxisInput | protocol | GCAxisInput.h | AxisInputDetails; current_controller_physical_input_elements() |
 | GCButtonElement | protocol | GCButtonElement.h | NamedButtonElementState; ButtonInputState |
 | GCButtonElementName | typedef | GCInputNames.h | GCButtonElementName / GCInputButtonName aliases; input_names::BUTTON_A |
 | GCColor | interface | GCColor.h | Color; DeviceLightDetails.color; set_first_controller_light_color() |
 | GCController | interface | GCController.h | Controller; connected_controllers(); connected_controller_details(); current_controller_snapshot(); watch_connections(); start_wireless_controller_discovery() |
 | GCControllerAxisInput | interface | GCControllerAxisInput.h | AxisInputState; PhysicalInputProfileDetails.axes |
 | GCControllerButtonInput | interface | GCControllerButtonInput.h | ButtonInputState; GamepadDetails/MicroGamepadDetails/ExtendedGamepadDetails |
+| GCControllerDidBecomeCurrentNotification | constant | GCController.h | watch_current_controller() |
 | GCControllerDidConnectNotification | constant | GCController.h | watch_connections() |
 | GCControllerDidDisconnectNotification | constant | GCController.h | watch_connections() |
+| GCControllerDidStopBeingCurrentNotification | constant | GCController.h | watch_current_controller() |
 | GCControllerDirectionPad | interface | GCControllerDirectionPad.h | DirectionPadInputState; GamepadDetails/MicroGamepadDetails/ExtendedGamepadDetails |
+| GCControllerElement | interface | GCControllerElement.h | GCControllerElement / NamedControllerElementDetails; current_controller_elements() |
 | GCControllerInputState | interface | GCControllerInput.h | ControllerInputStateDetails; ControllerLiveInputDetails.live/unmapped/next |
 | GCControllerLiveInput | interface | GCControllerInput.h | ControllerLiveInputDetails; current_controller_input_snapshot(); ControllerDetails.input |
 | GCControllerPlayerIndex | typedef enum | GCController.h | Controller.player_index; ControllerDetails.player_index; set_first_controller_player_index() |
 | GCControllerTouchpad | interface | GCControllerTouchpad.h | TouchpadDetails; PhysicalInputProfileDetails.touchpads |
+| GCControllerUserCustomizationsDidChangeNotification | constant | GCController.h | watch_controller_customizations() |
+| GCDevice | protocol | GCDevice.h | GCDevice / ConnectedDevicesSnapshot; connected_devices_snapshot() |
 | GCDeviceBattery | interface | GCDeviceBattery.h | BatteryState; ControllerExtras; BatteryInfo; first_controller_battery(); first_controller_battery_level() |
 | GCDeviceBatteryState | typedef enum | GCDeviceBattery.h | BatteryState; BatteryInfo.state; ControllerExtras.battery_state |
 | GCDeviceCursor | interface | GCDeviceCursor.h | DeviceCursorState; MouseSnapshot.scroll |
@@ -45,12 +52,25 @@ COVERAGE_PCT: 88.50%
 | GCDirectionalGamepad | interface | GCDirectionalGamepad.h | DirectionalGamepadDetails; ControllerDetails.directional_gamepad |
 | GCDualSenseAdaptiveTrigger | interface | GCDualSenseAdaptiveTrigger.h | dualsense_trigger_*(); DualSenseAdaptiveTriggerState; DualSenseGamepadDetails.left_trigger/right_trigger |
 | GCDualSenseAdaptiveTriggerMode | typedef enum | GCDualSenseAdaptiveTrigger.h | DualSenseTriggerMode |
+| GCDualSenseAdaptiveTriggerPositionalAmplitudes | typedef struct | GCDualSenseAdaptiveTrigger.h | DualSenseAdaptiveTriggerPositionalAmplitudes; dualsense_trigger_vibration_amplitudes() |
+| GCDualSenseAdaptiveTriggerPositionalResistiveStrengths | typedef struct | GCDualSenseAdaptiveTrigger.h | DualSenseAdaptiveTriggerPositionalResistiveStrengths; dualsense_trigger_feedback_resistive_strengths() |
 | GCDualSenseAdaptiveTriggerStatus | typedef enum | GCDualSenseAdaptiveTrigger.h | DualSenseTriggerStatus |
 | GCDualSenseGamepad | interface | GCDualSenseGamepad.h | dualsense_is_connected(); dualsense_trigger_*(); DualSenseGamepadDetails; ControllerDetails.dual_sense |
 | GCDualShockGamepad | interface | GCDualShockGamepad.h | DualShockGamepadDetails; ControllerDetails.dual_shock |
+| GCEulerAngles | typedef struct | GCMotion.h | EulerAngles; Quaternion::to_euler_angles() |
 | GCEventViewController | interface | GCEventViewController.h | event_view_controller_snapshot(); EventViewControllerDetails |
 | GCExtendedGamepad | interface | GCExtendedGamepad.h | Controller; ExtendedGamepadDetails; ControllerDetails.extended_gamepad |
 | GCGearShifterElement | interface | GCGearShifterElement.h | GearShifterDetails; RacingWheelInputDetails.shifter |
+| GCHapticDurationInfinite | constant | GCDeviceHaptics.h | HAPTIC_DURATION_INFINITE; rumble_first_controller_with_locality() |
+| GCHapticsLocality | typedef | GCDeviceHaptics.h | GCHapticsLocality / haptics_localities::*; rumble_first_controller_with_locality() |
+| GCHapticsLocalityAll | constant | GCDeviceHaptics.h | haptics_localities::ALL |
+| GCHapticsLocalityDefault | constant | GCDeviceHaptics.h | haptics_localities::DEFAULT; rumble_first_controller_with_locality() |
+| GCHapticsLocalityHandles | constant | GCDeviceHaptics.h | haptics_localities::HANDLES |
+| GCHapticsLocalityLeftHandle | constant | GCDeviceHaptics.h | haptics_localities::LEFT_HANDLE |
+| GCHapticsLocalityLeftTrigger | constant | GCDeviceHaptics.h | haptics_localities::LEFT_TRIGGER |
+| GCHapticsLocalityRightHandle | constant | GCDeviceHaptics.h | haptics_localities::RIGHT_HANDLE |
+| GCHapticsLocalityRightTrigger | constant | GCDeviceHaptics.h | haptics_localities::RIGHT_TRIGGER |
+| GCHapticsLocalityTriggers | constant | GCDeviceHaptics.h | haptics_localities::TRIGGERS |
 | GCInputArcadeButtonName | function | GCInputNames.h | input_names::arcade_button_name() |
 | GCInputBackLeftButton | function | GCInputNames.h | input_names::back_left_button() |
 | GCInputBackRightButton | function | GCInputNames.h | input_names::back_right_button() |
@@ -369,18 +389,46 @@ COVERAGE_PCT: 88.50%
 | GCKeyZ | constant | GCKeyNames.h | key_names::Z |
 | GCKeyZero | constant | GCKeyNames.h | key_names::ZERO |
 | GCKeyboard | interface | GCKeyboard.h | keyboard_is_connected(); keyboard_snapshot() |
+| GCKeyboardDidConnectNotification | constant | GCKeyboard.h | watch_keyboard_connections() |
+| GCKeyboardDidDisconnectNotification | constant | GCKeyboard.h | watch_keyboard_connections() |
 | GCKeyboardInput | interface | GCKeyboardInput.h | keyboard_any_key_pressed(); keyboard_is_key_pressed(); KeyboardSnapshot |
 | GCLinearInput | protocol | GCLinearInput.h | ButtonInputState.value; AxisElementState.absolute_value |
 | GCMicroGamepad | interface | GCMicroGamepad.h | MicroGamepadDetails; ControllerDetails.micro_gamepad |
 | GCMotion | interface | GCMotion.h | ControllerExtras; MotionDetails; ControllerDetails.motion |
 | GCMouse | interface | GCMouse.h | mouse_is_connected(); mouse_button_states(); mouse_snapshot() |
+| GCMouseDidBecomeCurrentNotification | constant | GCMouse.h | watch_mouse_current() |
+| GCMouseDidConnectNotification | constant | GCMouse.h | watch_mouse_connections() |
+| GCMouseDidDisconnectNotification | constant | GCMouse.h | watch_mouse_connections() |
+| GCMouseDidStopBeingCurrentNotification | constant | GCMouse.h | watch_mouse_current() |
 | GCMouseInput | interface | GCMouseInput.h | mouse_button_states(); MouseSnapshot |
 | GCPhysicalInputElement | protocol | GCPhysicalInputElement.h | NamedButtonElementState/NamedAxisElementState/NamedSwitchElementState/NamedDirectionPadElementState |
+| GCPhysicalInputElementCollection | interface | GCPhysicalInputElement.h | GCPhysicalInputElementCollection<T>; PhysicalInputElementSnapshot |
 | GCPhysicalInputElementName | typedef | GCInputNames.h | GCPhysicalInputElementName / GCInputElementName aliases; input_names::SHIFTER |
+| GCPhysicalInputExtents | protocol | GCPhysicalInputExtents.h | PhysicalInputExtentsDetails; current_controller_physical_input_elements() |
 | GCPhysicalInputProfile | interface | GCPhysicalInputProfile.h | PhysicalInputProfileDetails; ControllerDetails.physical_input; KeyboardSnapshot.physical_input; MouseSnapshot.physical_input |
+| GCPhysicalInputSource | protocol | GCPhysicalInputSource.h | PhysicalInputSourceDetails; current_controller_physical_input_elements() |
+| GCPhysicalInputSourceDirection | typedef enum | GCPhysicalInputSource.h | PhysicalInputSourceDirection; PhysicalInputSourceDetails.direction |
+| GCPoint2 | typedef | GCTypes.h | Point2 / GCPoint2; Axis2DInputDetails.value |
+| GCPoint2Zero | constant | GCTypes.h | POINT2_ZERO |
 | GCPressedStateInput | protocol | GCPressedStateInput.h | ButtonInputState.pressed/value |
+| GCProductCategoryArcadeStick | constant | GCProductCategories.h | product_categories::ARCADE_STICK |
+| GCProductCategoryCoalescedRemote | constant | GCProductCategories.h | product_categories::COALESCED_REMOTE |
+| GCProductCategoryControlCenterRemote | constant | GCProductCategories.h | product_categories::CONTROL_CENTER_REMOTE |
+| GCProductCategoryDualSense | constant | GCProductCategories.h | product_categories::DUAL_SENSE |
+| GCProductCategoryDualShock4 | constant | GCProductCategories.h | product_categories::DUAL_SHOCK_4 |
+| GCProductCategoryHID | constant | GCProductCategories.h | product_categories::HID |
+| GCProductCategoryKeyboard | constant | GCProductCategories.h | product_categories::KEYBOARD |
+| GCProductCategoryMFi | constant | GCProductCategories.h | product_categories::MFI |
+| GCProductCategoryMouse | constant | GCProductCategories.h | product_categories::MOUSE |
+| GCProductCategorySiriRemote1stGen | constant | GCProductCategories.h | product_categories::SIRI_REMOTE_1ST_GEN |
+| GCProductCategorySiriRemote2ndGen | constant | GCProductCategories.h | product_categories::SIRI_REMOTE_2ND_GEN |
+| GCProductCategorySpatialController | constant | GCProductCategories.h | product_categories::SPATIAL_CONTROLLER |
+| GCProductCategoryUniversalElectronicsRemote | constant | GCProductCategories.h | product_categories::UNIVERSAL_ELECTRONICS_REMOTE |
+| GCProductCategoryXboxOne | constant | GCProductCategories.h | product_categories::XBOX_ONE |
 | GCQuaternion | typedef struct | GCMotion.h | Quaternion; MotionDetails.attitude |
 | GCRacingWheel | interface | GCRacingWheel.h | connected_racing_wheels(); RacingWheelDetails |
+| GCRacingWheelDidConnectNotification | constant | GCRacingWheel.h | watch_racing_wheel_connections() |
+| GCRacingWheelDidDisconnectNotification | constant | GCRacingWheel.h | watch_racing_wheel_connections() |
 | GCRacingWheelInput | interface | GCRacingWheelInput.h | RacingWheelDetails.wheel_input; RacingWheelInputDetails |
 | GCRacingWheelInputState | interface | GCRacingWheelInput.h | RacingWheelDetails.wheel_input; RacingWheelInputDetails |
 | GCRelativeInput | protocol | GCRelativeInput.h | AxisElementState.relative_delta; SteeringWheelDetails.relative_delta; GearShifterDetails.sequential_delta |
@@ -389,62 +437,13 @@ COVERAGE_PCT: 88.50%
 | GCSwitchElement | protocol | GCSwitchElement.h | NamedSwitchElementState; SwitchInputState |
 | GCSwitchElementName | typedef | GCInputNames.h | GCSwitchElementName / GCInputSwitchName aliases |
 | GCSwitchPositionInput | protocol | GCSwitchPositionInput.h | SwitchInputState; GearShifterDetails.pattern_* |
+| GCSystemGestureState | typedef enum | GCControllerElement.h | SystemGestureState; ControllerElementDetails.preferred_system_gesture_state |
 | GCTouchState | typedef enum | GCControllerTouchpad.h | TouchState |
 | GCTouchedStateInput | protocol | GCTouchedStateInput.h | ButtonInputState.touched |
 | GCXboxGamepad | interface | GCXboxGamepad.h | XboxGamepadDetails; ControllerDetails.xbox |
 
 ## 🔴 GAPS
-| Symbol | Kind | Header | Notes |
-| --- | --- | --- | --- |
-| GCAxis2DInput | protocol | GCAxis2DInput.h | No standalone Rust wrapper for the generic axis-input protocol. |
-| GCAxisInput | protocol | GCAxisInput.h | No standalone Rust wrapper for the generic axis-input protocol. |
-| GCControllerDidBecomeCurrentNotification | constant | GCController.h | No Rust notification wrapper for this lifecycle event. |
-| GCControllerDidStopBeingCurrentNotification | constant | GCController.h | No Rust notification wrapper for this lifecycle event. |
-| GCControllerElement | interface | GCControllerElement.h | No standalone Rust wrapper for controller-element base metadata or system-gesture state. |
-| GCControllerUserCustomizationsDidChangeNotification | constant | GCController.h | No Rust notification wrapper for this lifecycle event. |
-| GCDevice | protocol | GCDevice.h | No generic Rust device abstraction for handler queues or shared GCDevice properties. |
-| GCDualSenseAdaptiveTriggerPositionalAmplitudes | typedef struct | GCDualSenseAdaptiveTrigger.h | DualSense helpers expose higher-level trigger modes, not the raw positional-array structs. |
-| GCDualSenseAdaptiveTriggerPositionalResistiveStrengths | typedef struct | GCDualSenseAdaptiveTrigger.h | DualSense helpers expose higher-level trigger modes, not the raw positional-array structs. |
-| GCEulerAngles | typedef struct | GCMotion.h | Motion snapshots expose quaternions/vector3 values, not Euler-angle structs. |
-| GCHapticDurationInfinite | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCHapticsLocality | typedef | GCDeviceHaptics.h | supported_localities is Vec<String>; no typed Rust locality alias is exposed. |
-| GCHapticsLocalityAll | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCHapticsLocalityDefault | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCHapticsLocalityHandles | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCHapticsLocalityLeftHandle | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCHapticsLocalityLeftTrigger | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCHapticsLocalityRightHandle | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCHapticsLocalityRightTrigger | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCHapticsLocalityTriggers | constant | GCDeviceHaptics.h | Locality/duration constants are not exported; rumble_first_controller() always uses the default locality. |
-| GCKeyboardDidConnectNotification | constant | GCKeyboard.h | No Rust notification wrapper for this lifecycle event. |
-| GCKeyboardDidDisconnectNotification | constant | GCKeyboard.h | No Rust notification wrapper for this lifecycle event. |
-| GCMouseDidBecomeCurrentNotification | constant | GCMouse.h | No Rust notification wrapper for this lifecycle event. |
-| GCMouseDidConnectNotification | constant | GCMouse.h | No Rust notification wrapper for this lifecycle event. |
-| GCMouseDidDisconnectNotification | constant | GCMouse.h | No Rust notification wrapper for this lifecycle event. |
-| GCMouseDidStopBeingCurrentNotification | constant | GCMouse.h | No Rust notification wrapper for this lifecycle event. |
-| GCPhysicalInputElementCollection | interface | GCPhysicalInputElement.h | Collections are materialized as Vec<T>, not exposed as GCPhysicalInputElementCollection. |
-| GCPhysicalInputExtents | protocol | GCPhysicalInputExtents.h | Physical-input extent metadata is not wrapped. |
-| GCPhysicalInputSource | protocol | GCPhysicalInputSource.h | Remapping/source metadata is not wrapped. |
-| GCPhysicalInputSourceDirection | typedef enum | GCPhysicalInputSource.h | Remapping/source metadata is not wrapped. |
-| GCPoint2 | typedef | GCTypes.h | 2D values are flattened to x/y fields, not exposed as GCPoint2 helpers. |
-| GCPoint2Zero | constant | GCTypes.h | 2D values are flattened to x/y fields, not exposed as GCPoint2 helpers. |
-| GCProductCategoryArcadeStick | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryCoalescedRemote | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryControlCenterRemote | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryDualSense | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryDualShock4 | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryHID | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryKeyboard | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryMFi | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryMouse | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategorySiriRemote1stGen | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategorySiriRemote2ndGen | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategorySpatialController | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryUniversalElectronicsRemote | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCProductCategoryXboxOne | constant | GCProductCategories.h | product_category is surfaced as String; typed category constants are not exported. |
-| GCRacingWheelDidConnectNotification | constant | GCRacingWheel.h | No Rust notification wrapper for this lifecycle event. |
-| GCRacingWheelDidDisconnectNotification | constant | GCRacingWheel.h | No Rust notification wrapper for this lifecycle event. |
-| GCSystemGestureState | typedef enum | GCControllerElement.h | No standalone Rust wrapper for controller-element base metadata or system-gesture state. |
+None.
 
 ## ⏭️ EXEMPT
 | Symbol | Kind | Header | Reason | SDK attribute |

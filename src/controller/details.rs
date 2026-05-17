@@ -6,7 +6,10 @@ use serde::{de::DeserializeOwned, Deserialize};
 use crate::error::GameControllerError;
 use crate::ffi;
 
-use super::BatteryState;
+use super::{
+    BatteryState, EulerAngles, GCHapticsLocality, GCPoint2, HapticsLocality,
+    PhysicalInputSourceDirection, SystemGestureState,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -55,6 +58,35 @@ pub struct Quaternion {
     pub y: f64,
     pub z: f64,
     pub w: f64,
+}
+
+impl Quaternion {
+    /// Convert the quaternion into pitch/yaw/roll Euler angles (radians).
+    #[must_use]
+    pub fn to_euler_angles(self) -> EulerAngles {
+        let sin_pitch = 2.0 * self.w.mul_add(self.x, self.y * self.z);
+        let cos_pitch = 2.0f64.mul_add(-(self.x.mul_add(self.x, self.y * self.y)), 1.0);
+        let pitch = sin_pitch.atan2(cos_pitch);
+
+        let sin_yaw = 2.0 * self.w.mul_add(self.y, -(self.z * self.x));
+        let yaw = if sin_yaw.abs() >= 1.0 {
+            sin_yaw.signum() * std::f64::consts::FRAC_PI_2
+        } else {
+            sin_yaw.asin()
+        };
+
+        let sin_roll = 2.0 * self.w.mul_add(self.z, self.x * self.y);
+        let cos_roll = 2.0f64.mul_add(-(self.y.mul_add(self.y, self.z * self.z)), 1.0);
+        let roll = sin_roll.atan2(cos_roll);
+
+        EulerAngles { pitch, yaw, roll }
+    }
+}
+
+impl From<Quaternion> for EulerAngles {
+    fn from(value: Quaternion) -> Self {
+        value.to_euler_angles()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
@@ -216,6 +248,45 @@ pub struct DeviceHapticsDetails {
     pub supported_localities: Vec<String>,
 }
 
+impl DeviceHapticsDetails {
+    /// Return the supported localities as typed `GCHapticsLocality` constants when possible.
+    #[must_use]
+    pub fn supported_locality_constants(&self) -> Vec<GCHapticsLocality> {
+        self.supported_localities
+            .iter()
+            .filter_map(|value| HapticsLocality::from_runtime_value(value))
+            .collect()
+    }
+
+    /// Check whether the device reports support for a given locality.
+    #[must_use]
+    pub fn supports_locality(&self, locality: GCHapticsLocality) -> bool {
+        self.supported_localities
+            .iter()
+            .any(|value| value == locality.as_ref())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceDetails {
+    pub vendor_name: String,
+    pub product_category: String,
+    pub handler_queue_label: String,
+}
+
+/// Apple-style alias for the generic `GCDevice` protocol snapshot.
+pub type GCDevice = DeviceDetails;
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectedDevicesSnapshot {
+    pub controllers: Vec<DeviceDetails>,
+    pub keyboard: Option<DeviceDetails>,
+    pub mouse: Option<DeviceDetails>,
+    pub racing_wheels: Vec<DeviceDetails>,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::struct_excessive_bools)]
@@ -340,6 +411,188 @@ pub struct InputElementMetadata {
     pub aliases: Vec<String>,
     pub localized_name: Option<String>,
     pub sf_symbols_name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControllerElementDetails {
+    pub analog: bool,
+    pub collection_path: Vec<String>,
+    pub is_bound_to_system_gesture: bool,
+    pub preferred_system_gesture_state: SystemGestureState,
+    pub sf_symbols_name: Option<String>,
+    pub localized_name: Option<String>,
+    pub unmapped_sf_symbols_name: Option<String>,
+    pub unmapped_localized_name: Option<String>,
+}
+
+/// Apple-style alias for the legacy `GCControllerElement` base class.
+pub type GCControllerElement = ControllerElementDetails;
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NamedControllerElementDetails {
+    pub name: String,
+    pub value: ControllerElementDetails,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PhysicalInputSourceDetails {
+    pub element_aliases: Vec<String>,
+    pub element_localized_name: Option<String>,
+    pub sf_symbols_name: Option<String>,
+    pub direction: PhysicalInputSourceDirection,
+}
+
+/// Apple-style alias for `GCPhysicalInputSource` snapshots.
+pub type GCPhysicalInputSource = PhysicalInputSourceDetails;
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PhysicalInputExtentsDetails {
+    pub scaled_value: f64,
+    pub minimum_value: f64,
+    pub maximum_value: f64,
+}
+
+/// Apple-style alias for `GCPhysicalInputExtents` snapshots.
+pub type GCPhysicalInputExtents = PhysicalInputExtentsDetails;
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinearInputDetails {
+    pub value: f32,
+    pub analog: bool,
+    pub can_wrap: bool,
+    pub last_value_timestamp: f64,
+    pub last_value_latency: f64,
+    pub physical_extents: Option<PhysicalInputExtentsDetails>,
+    pub sources: Vec<PhysicalInputSourceDetails>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PressedStateInputDetails {
+    pub pressed: bool,
+    pub last_pressed_state_timestamp: f64,
+    pub last_pressed_state_latency: f64,
+    pub sources: Vec<PhysicalInputSourceDetails>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TouchedStateInputDetails {
+    pub touched: bool,
+    pub last_touched_state_timestamp: f64,
+    pub last_touched_state_latency: f64,
+    pub sources: Vec<PhysicalInputSourceDetails>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RelativeInputDetails {
+    pub delta: f32,
+    pub analog: bool,
+    pub last_delta_timestamp: f64,
+    pub last_delta_latency: f64,
+    pub sources: Vec<PhysicalInputSourceDetails>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AxisInputDetails {
+    pub value: f32,
+    pub analog: bool,
+    pub can_wrap: bool,
+    pub last_value_timestamp: f64,
+    pub last_value_latency: f64,
+    pub sources: Vec<PhysicalInputSourceDetails>,
+}
+
+/// Apple-style alias for the generic `GCAxisInput` protocol snapshot.
+pub type GCAxisInput = AxisInputDetails;
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Axis2DInputDetails {
+    pub value: GCPoint2,
+    pub analog: bool,
+    pub can_wrap: bool,
+    pub last_value_timestamp: f64,
+    pub last_value_latency: f64,
+    pub sources: Vec<PhysicalInputSourceDetails>,
+}
+
+/// Apple-style alias for the generic `GCAxis2DInput` protocol snapshot.
+pub type GCAxis2DInput = Axis2DInputDetails;
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwitchPositionInputDetails {
+    pub position: i32,
+    pub position_lower_bound: i32,
+    pub position_count: i32,
+    pub sequential: bool,
+    pub can_wrap: bool,
+    pub sources: Vec<PhysicalInputSourceDetails>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinearPressedInputDetails {
+    pub linear_input: LinearInputDetails,
+    pub pressed_state: PressedStateInputDetails,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ButtonElementDetails {
+    pub metadata: InputElementMetadata,
+    pub linear_input: LinearInputDetails,
+    pub pressed_state: PressedStateInputDetails,
+    pub touched_state: Option<TouchedStateInputDetails>,
+    pub force_input: Option<LinearInputDetails>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AxisElementDetails {
+    pub metadata: InputElementMetadata,
+    pub absolute_input: Option<AxisInputDetails>,
+    pub relative_input: RelativeInputDetails,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwitchElementDetails {
+    pub metadata: InputElementMetadata,
+    pub position_input: SwitchPositionInputDetails,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirectionPadElementDetails {
+    pub metadata: InputElementMetadata,
+    pub xy_axes: Option<Axis2DInputDetails>,
+    pub x_axis: AxisInputDetails,
+    pub y_axis: AxisInputDetails,
+    pub up: LinearPressedInputDetails,
+    pub down: LinearPressedInputDetails,
+    pub left: LinearPressedInputDetails,
+    pub right: LinearPressedInputDetails,
+}
+
+/// Rust alias mirroring the `GCPhysicalInputElementCollection` concept with `Vec<T>` semantics.
+pub type GCPhysicalInputElementCollection<T> = Vec<T>;
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PhysicalInputElementSnapshot {
+    pub buttons: GCPhysicalInputElementCollection<ButtonElementDetails>,
+    pub axes: GCPhysicalInputElementCollection<AxisElementDetails>,
+    pub switches: GCPhysicalInputElementCollection<SwitchElementDetails>,
+    pub dpads: GCPhysicalInputElementCollection<DirectionPadElementDetails>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
@@ -662,6 +915,42 @@ pub fn current_controller_input_snapshot(
 pub fn current_controller_input_source(
 ) -> Result<Option<DevicePhysicalInputSourceDetails>, GameControllerError> {
     parse_json(unsafe { ffi::gc_current_controller_input_source_json() })
+}
+
+/// Snapshot every connected `GCDevice`-conforming object that the crate can see.
+///
+/// This includes controllers, the coalesced keyboard, the current mouse, and
+/// connected racing wheels.
+///
+/// # Errors
+///
+/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
+pub fn connected_devices_snapshot() -> Result<ConnectedDevicesSnapshot, GameControllerError> {
+    parse_json(unsafe { ffi::gc_connected_devices_json() })
+}
+
+/// Snapshot legacy `GCControllerElement` metadata for the current controller's
+/// visible profile elements.
+///
+/// The returned list is empty when there is no current controller.
+///
+/// # Errors
+///
+/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
+pub fn current_controller_elements(
+) -> Result<Vec<NamedControllerElementDetails>, GameControllerError> {
+    parse_json(unsafe { ffi::gc_current_controller_elements_json() })
+}
+
+/// Snapshot the current controller's physical-input element collections, including
+/// axis/source/extents metadata when the OS exposes it.
+///
+/// # Errors
+///
+/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
+pub fn current_controller_physical_input_elements(
+) -> Result<Option<PhysicalInputElementSnapshot>, GameControllerError> {
+    parse_json(unsafe { ffi::gc_current_controller_physical_input_elements_json() })
 }
 
 fn parse_json<T: DeserializeOwned>(ptr: *mut c_char) -> Result<T, GameControllerError> {

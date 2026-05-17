@@ -100,6 +100,8 @@ fn aliases() -> BTreeMap<&'static str, Vec<&'static str>> {
             "mappedPhysicalInputNamesForElementAlias",
             vec!["mappedPhysicalInputNames"],
         ),
+        ("analog", vec!["isAnalog"]),
+        ("boundToSystemGesture", vec!["isBoundToSystemGesture"]),
         ("initWithRed", vec!["GCColor(red:"]),
         ("objectForKeyedSubscript", vec!["profile[alias]", "[alias]"]),
         ("snapshot", vec!["isSnapshot"]),
@@ -382,4 +384,40 @@ fn gc_racing_wheel_input_state_coverage() {
 fn gc_racing_wheel_input_coverage() {
     let omitted = omitted_set(["nextInputState"]);
     coverage("GCRacingWheelInput", "GCRacingWheelInput", &omitted);
+}
+
+#[test]
+fn gc_device_coverage() {
+    let omitted = omitted_set(["physicalInputProfile"]);
+    coverage("GCDevice", "GCDevice", &omitted);
+}
+
+#[test]
+fn gc_controller_element_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCControllerElement", "GCControllerElement", &omitted);
+}
+
+#[test]
+fn gc_axis_input_coverage() {
+    let omitted = omitted_set(["valueDidChangeHandler"]);
+    coverage("GCAxisInput", "GCAxisInput", &omitted);
+}
+
+#[test]
+fn gc_axis2d_input_coverage() {
+    let omitted = omitted_set(["valueDidChangeHandler"]);
+    coverage("GCAxis2DInput", "GCAxis2DInput", &omitted);
+}
+
+#[test]
+fn gc_physical_input_source_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCPhysicalInputSource", "GCPhysicalInputSource", &omitted);
+}
+
+#[test]
+fn gc_physical_input_extents_coverage() {
+    let omitted = omitted_set([]);
+    coverage("GCPhysicalInputExtents", "GCPhysicalInputExtents", &omitted);
 }

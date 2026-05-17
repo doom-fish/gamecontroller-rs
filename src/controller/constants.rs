@@ -3,7 +3,12 @@
 //! These constants cover the large `GCKeyCode*`, `GCKey*`, and `GCInput*`
 //! symbol families that dominate the framework's public surface area.
 
-use core::fmt;
+use core::{
+    fmt,
+    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
+};
+
+use serde::Deserialize;
 
 /// Low-level HID-page-7 key code type mirroring Apple's `GCKeyCode`.
 pub type GCKeyCode = isize;
@@ -46,6 +51,259 @@ impl fmt::Display for KeyName {
 
 /// Typed alias mirroring Apple's `GCKeyName` constant family.
 pub type GCKeyName = KeyName;
+
+/// Typed locality constant mirroring Apple's `GCHapticsLocality` family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct HapticsLocality(&'static str);
+
+impl HapticsLocality {
+    /// Create a new static haptics-locality name.
+    #[must_use]
+    pub const fn new(value: &'static str) -> Self {
+        Self(value)
+    }
+
+    /// Borrow the SDK-defined string value.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        self.0
+    }
+
+    /// Convert a runtime string into a typed locality when it matches a known SDK constant.
+    #[must_use]
+    pub fn from_runtime_value(value: &str) -> Option<Self> {
+        match value {
+            "Default" => Some(Self::new("Default")),
+            "All" => Some(Self::new("All")),
+            "Handles" => Some(Self::new("Handles")),
+            "Left Handle" => Some(Self::new("Left Handle")),
+            "Right Handle" => Some(Self::new("Right Handle")),
+            "Triggers" => Some(Self::new("Triggers")),
+            "Left Trigger" => Some(Self::new("Left Trigger")),
+            "Right Trigger" => Some(Self::new("Right Trigger")),
+            _ => None,
+        }
+    }
+}
+
+impl AsRef<str> for HapticsLocality {
+    fn as_ref(&self) -> &str {
+        self.0
+    }
+}
+
+impl From<HapticsLocality> for &'static str {
+    fn from(value: HapticsLocality) -> Self {
+        value.0
+    }
+}
+
+impl fmt::Display for HapticsLocality {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.0)
+    }
+}
+
+/// Typed alias mirroring Apple's `GCHapticsLocality` constant family.
+pub type GCHapticsLocality = HapticsLocality;
+
+/// Typed product-category constant mirroring Apple's `GCProductCategory*` families.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ProductCategory(&'static str);
+
+impl ProductCategory {
+    /// Create a new static product-category string.
+    #[must_use]
+    pub const fn new(value: &'static str) -> Self {
+        Self(value)
+    }
+
+    /// Borrow the SDK-defined string value.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        self.0
+    }
+
+    /// Convert a runtime string into a typed product category when it matches a known SDK constant.
+    #[must_use]
+    pub fn from_runtime_value(value: &str) -> Option<Self> {
+        match value {
+            "Arcade Stick" => Some(Self::new("Arcade Stick")),
+            "Coalesced Remote" => Some(Self::new("Coalesced Remote")),
+            "Control Center Remote" => Some(Self::new("Control Center Remote")),
+            "DualSense" => Some(Self::new("DualSense")),
+            "DualShock 4" => Some(Self::new("DualShock 4")),
+            "HID" => Some(Self::new("HID")),
+            "Keyboard" => Some(Self::new("Keyboard")),
+            "MFi" => Some(Self::new("MFi")),
+            "Mouse" => Some(Self::new("Mouse")),
+            "Siri Remote (1st Generation)" => Some(Self::new("Siri Remote (1st Generation)")),
+            "Siri Remote (2nd Generation)" => Some(Self::new("Siri Remote (2nd Generation)")),
+            "Spatial Controller" => Some(Self::new("Spatial Controller")),
+            "Universal Electronics Remote" => Some(Self::new("Universal Electronics Remote")),
+            "Xbox One" => Some(Self::new("Xbox One")),
+            _ => None,
+        }
+    }
+
+    /// Check whether a runtime category string matches this SDK-defined category.
+    #[must_use]
+    pub fn matches(self, value: &str) -> bool {
+        self.0 == value
+    }
+}
+
+impl AsRef<str> for ProductCategory {
+    fn as_ref(&self) -> &str {
+        self.0
+    }
+}
+
+impl From<ProductCategory> for &'static str {
+    fn from(value: ProductCategory) -> Self {
+        value.0
+    }
+}
+
+impl fmt::Display for ProductCategory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.0)
+    }
+}
+
+/// Typed alias mirroring Apple's `GCProductCategory*` constant families.
+pub type GCProductCategory = ProductCategory;
+
+/// Two-dimensional value mirroring Apple's `GCPoint2`.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Deserialize)]
+pub struct Point2 {
+    pub x: f32,
+    pub y: f32,
+}
+
+/// Apple-style alias for [`Point2`].
+pub type GCPoint2 = Point2;
+
+/// Rust mirror of Apple's `GCPoint2Zero` constant.
+pub const POINT2_ZERO: GCPoint2 = GCPoint2 { x: 0.0, y: 0.0 };
+
+/// Euler-angle triple mirroring Apple's `GCEulerAngles`.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Deserialize)]
+pub struct EulerAngles {
+    pub pitch: f64,
+    pub yaw: f64,
+    pub roll: f64,
+}
+
+/// Apple-style alias for [`EulerAngles`].
+pub type GCEulerAngles = EulerAngles;
+
+/// The number of discrete adaptive-trigger positions exposed by `DualSense` trigger arrays.
+pub const DUALSENSE_ADAPTIVE_TRIGGER_DISCRETE_POSITION_COUNT: usize = 10;
+
+/// Raw positional amplitudes mirroring Apple's `GCDualSenseAdaptiveTriggerPositionalAmplitudes`.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+pub struct DualSenseAdaptiveTriggerPositionalAmplitudes {
+    pub values: [f32; DUALSENSE_ADAPTIVE_TRIGGER_DISCRETE_POSITION_COUNT],
+}
+
+impl Default for DualSenseAdaptiveTriggerPositionalAmplitudes {
+    fn default() -> Self {
+        Self {
+            values: [0.0; DUALSENSE_ADAPTIVE_TRIGGER_DISCRETE_POSITION_COUNT],
+        }
+    }
+}
+
+/// Apple-style alias for [`DualSenseAdaptiveTriggerPositionalAmplitudes`].
+pub type GCDualSenseAdaptiveTriggerPositionalAmplitudes =
+    DualSenseAdaptiveTriggerPositionalAmplitudes;
+
+/// Raw positional resistive strengths mirroring Apple's `GCDualSenseAdaptiveTriggerPositionalResistiveStrengths`.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+pub struct DualSenseAdaptiveTriggerPositionalResistiveStrengths {
+    pub values: [f32; DUALSENSE_ADAPTIVE_TRIGGER_DISCRETE_POSITION_COUNT],
+}
+
+impl Default for DualSenseAdaptiveTriggerPositionalResistiveStrengths {
+    fn default() -> Self {
+        Self {
+            values: [0.0; DUALSENSE_ADAPTIVE_TRIGGER_DISCRETE_POSITION_COUNT],
+        }
+    }
+}
+
+/// Apple-style alias for [`DualSenseAdaptiveTriggerPositionalResistiveStrengths`].
+pub type GCDualSenseAdaptiveTriggerPositionalResistiveStrengths =
+    DualSenseAdaptiveTriggerPositionalResistiveStrengths;
+
+/// Rust mirror of Apple's `GCSystemGestureState` enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SystemGestureState {
+    Enabled,
+    AlwaysReceive,
+    Disabled,
+}
+
+/// Apple-style alias for [`SystemGestureState`].
+pub type GCSystemGestureState = SystemGestureState;
+
+/// Bitflag wrapper mirroring Apple's `GCPhysicalInputSourceDirection` options type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deserialize)]
+#[serde(transparent)]
+pub struct PhysicalInputSourceDirection(u8);
+
+impl PhysicalInputSourceDirection {
+    pub const NOT_APPLICABLE: Self = Self(0);
+    pub const UP: Self = Self(1 << 0);
+    pub const RIGHT: Self = Self(1 << 1);
+    pub const DOWN: Self = Self(1 << 2);
+    pub const LEFT: Self = Self(1 << 3);
+
+    /// Return the raw bitset value.
+    #[must_use]
+    pub const fn bits(self) -> u8 {
+        self.0
+    }
+
+    /// Check whether all bits in `other` are set.
+    #[must_use]
+    pub const fn contains(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+}
+
+impl BitOr for PhysicalInputSourceDirection {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
+
+impl BitOrAssign for PhysicalInputSourceDirection {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+
+impl BitAnd for PhysicalInputSourceDirection {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self(self.0 & rhs.0)
+    }
+}
+
+impl BitAndAssign for PhysicalInputSourceDirection {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+
+/// Apple-style alias for [`PhysicalInputSourceDirection`].
+pub type GCPhysicalInputSourceDirection = PhysicalInputSourceDirection;
 
 /// Typed physical-input element name mirroring Apple's `GCInput*` string constants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -462,4 +720,45 @@ pub mod input_names {
     pub fn arcade_button_name(row: usize, column: usize) -> String {
         format!("Arcade Button {row}, {column}")
     }
+}
+
+/// Mirrors Apple's `GCHapticsLocality*` string constants.
+pub mod haptics_localities {
+    use super::GCHapticsLocality;
+
+    pub const DEFAULT: GCHapticsLocality = GCHapticsLocality::new("Default");
+    pub const ALL: GCHapticsLocality = GCHapticsLocality::new("All");
+    pub const HANDLES: GCHapticsLocality = GCHapticsLocality::new("Handles");
+    pub const LEFT_HANDLE: GCHapticsLocality = GCHapticsLocality::new("Left Handle");
+    pub const RIGHT_HANDLE: GCHapticsLocality = GCHapticsLocality::new("Right Handle");
+    pub const TRIGGERS: GCHapticsLocality = GCHapticsLocality::new("Triggers");
+    pub const LEFT_TRIGGER: GCHapticsLocality = GCHapticsLocality::new("Left Trigger");
+    pub const RIGHT_TRIGGER: GCHapticsLocality = GCHapticsLocality::new("Right Trigger");
+}
+
+/// Mirrors Apple's `GCHapticDurationInfinite` constant.
+pub const HAPTIC_DURATION_INFINITE: f32 = 1_000_000.0;
+
+/// Mirrors Apple's `GCProductCategory*` string constants.
+pub mod product_categories {
+    use super::GCProductCategory;
+
+    pub const ARCADE_STICK: GCProductCategory = GCProductCategory::new("Arcade Stick");
+    pub const COALESCED_REMOTE: GCProductCategory = GCProductCategory::new("Coalesced Remote");
+    pub const CONTROL_CENTER_REMOTE: GCProductCategory =
+        GCProductCategory::new("Control Center Remote");
+    pub const DUAL_SENSE: GCProductCategory = GCProductCategory::new("DualSense");
+    pub const DUAL_SHOCK_4: GCProductCategory = GCProductCategory::new("DualShock 4");
+    pub const HID: GCProductCategory = GCProductCategory::new("HID");
+    pub const KEYBOARD: GCProductCategory = GCProductCategory::new("Keyboard");
+    pub const MFI: GCProductCategory = GCProductCategory::new("MFi");
+    pub const MOUSE: GCProductCategory = GCProductCategory::new("Mouse");
+    pub const SIRI_REMOTE_1ST_GEN: GCProductCategory =
+        GCProductCategory::new("Siri Remote (1st Generation)");
+    pub const SIRI_REMOTE_2ND_GEN: GCProductCategory =
+        GCProductCategory::new("Siri Remote (2nd Generation)");
+    pub const SPATIAL_CONTROLLER: GCProductCategory = GCProductCategory::new("Spatial Controller");
+    pub const UNIVERSAL_ELECTRONICS_REMOTE: GCProductCategory =
+        GCProductCategory::new("Universal Electronics Remote");
+    pub const XBOX_ONE: GCProductCategory = GCProductCategory::new("Xbox One");
 }

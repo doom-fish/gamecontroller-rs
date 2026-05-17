@@ -5,7 +5,7 @@ mod details;
 
 use core::ffi::c_void;
 use core::ptr;
-use std::sync::Mutex;
+use std::{ffi::CString, sync::Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -296,15 +296,23 @@ pub struct MouseButtons {
 
 // ---- v0.2: connect/disconnect callbacks ----
 
-/// RAII guard for a registered connection-state callback. Drops the
+/// RAII guard for a registered bool-state notification callback. Drops the
 /// `NSNotificationCenter` observer on scope exit.
 pub struct ConnectionWatcher {
     token: *mut core::ffi::c_void,
     _callback: Box<Box<dyn Fn(bool) + Send + Sync + 'static>>,
 }
 
+/// RAII guard for a registered notification callback without payload data.
+pub struct NotificationWatcher {
+    token: *mut core::ffi::c_void,
+    _callback: Box<Box<dyn Fn() + Send + Sync + 'static>>,
+}
+
 unsafe impl Send for ConnectionWatcher {}
 unsafe impl Sync for ConnectionWatcher {}
+unsafe impl Send for NotificationWatcher {}
+unsafe impl Sync for NotificationWatcher {}
 
 static DISCOVERY_CALLBACK: Mutex<Option<Box<dyn FnOnce() + Send + 'static>>> = Mutex::new(None);
 
@@ -317,13 +325,63 @@ impl Drop for ConnectionWatcher {
     }
 }
 
-unsafe extern "C" fn trampoline(user_info: *mut core::ffi::c_void, connected: bool) {
+impl Drop for NotificationWatcher {
+    fn drop(&mut self) {
+        if !self.token.is_null() {
+            unsafe { ffi::gc_unregister_notification_callback(self.token) };
+            self.token = core::ptr::null_mut();
+        }
+    }
+}
+
+unsafe extern "C" fn connection_trampoline(user_info: *mut core::ffi::c_void, value: bool) {
     let cb_ptr = user_info.cast::<Box<dyn Fn(bool) + Send + Sync + 'static>>();
     if cb_ptr.is_null() {
         return;
     }
     let cb = unsafe { &*cb_ptr };
-    cb(connected);
+    cb(value);
+}
+
+unsafe extern "C" fn notification_trampoline(user_info: *mut core::ffi::c_void) {
+    let cb_ptr = user_info.cast::<Box<dyn Fn() + Send + Sync + 'static>>();
+    if cb_ptr.is_null() {
+        return;
+    }
+    let cb = unsafe { &*cb_ptr };
+    cb();
+}
+
+fn watch_connection_with<F>(
+    register: unsafe extern "C" fn(ffi::ConnectionCallback, *mut c_void) -> *mut c_void,
+    callback: F,
+) -> ConnectionWatcher
+where
+    F: Fn(bool) + Send + Sync + 'static,
+{
+    let boxed: Box<dyn Fn(bool) + Send + Sync + 'static> = Box::new(callback);
+    let raw_box = Box::into_raw(Box::new(boxed));
+    let token = unsafe { register(connection_trampoline, raw_box.cast::<c_void>()) };
+    ConnectionWatcher {
+        token,
+        _callback: unsafe { Box::from_raw(raw_box) },
+    }
+}
+
+fn watch_notification_with<F>(
+    register: unsafe extern "C" fn(ffi::NotificationCallback, *mut c_void) -> *mut c_void,
+    callback: F,
+) -> NotificationWatcher
+where
+    F: Fn() + Send + Sync + 'static,
+{
+    let boxed: Box<dyn Fn() + Send + Sync + 'static> = Box::new(callback);
+    let raw_box = Box::into_raw(Box::new(boxed));
+    let token = unsafe { register(notification_trampoline, raw_box.cast::<c_void>()) };
+    NotificationWatcher {
+        token,
+        _callback: unsafe { Box::from_raw(raw_box) },
+    }
 }
 
 /// Register a closure that fires when any controller connects (`true`)
@@ -338,15 +396,65 @@ pub fn watch_connections<F>(callback: F) -> ConnectionWatcher
 where
     F: Fn(bool) + Send + Sync + 'static,
 {
-    let boxed: Box<dyn Fn(bool) + Send + Sync + 'static> = Box::new(callback);
-    let raw_box = Box::into_raw(Box::new(boxed));
-    let token = unsafe {
-        ffi::gc_register_connection_callback(trampoline, raw_box.cast::<core::ffi::c_void>())
-    };
-    ConnectionWatcher {
-        token,
-        _callback: unsafe { Box::from_raw(raw_box) },
-    }
+    watch_connection_with(ffi::gc_register_connection_callback, callback)
+}
+
+/// Register a closure that fires when `GCController.current` becomes available
+/// (`true`) or stops being current (`false`).
+#[must_use]
+pub fn watch_current_controller<F>(callback: F) -> ConnectionWatcher
+where
+    F: Fn(bool) + Send + Sync + 'static,
+{
+    watch_connection_with(ffi::gc_register_controller_current_callback, callback)
+}
+
+/// Register a closure that fires when keyboards connect (`true`) or disconnect (`false`).
+#[must_use]
+pub fn watch_keyboard_connections<F>(callback: F) -> ConnectionWatcher
+where
+    F: Fn(bool) + Send + Sync + 'static,
+{
+    watch_connection_with(ffi::gc_register_keyboard_connection_callback, callback)
+}
+
+/// Register a closure that fires when mice connect (`true`) or disconnect (`false`).
+#[must_use]
+pub fn watch_mouse_connections<F>(callback: F) -> ConnectionWatcher
+where
+    F: Fn(bool) + Send + Sync + 'static,
+{
+    watch_connection_with(ffi::gc_register_mouse_connection_callback, callback)
+}
+
+/// Register a closure that fires when the current mouse changes (`true` = became current).
+#[must_use]
+pub fn watch_mouse_current<F>(callback: F) -> ConnectionWatcher
+where
+    F: Fn(bool) + Send + Sync + 'static,
+{
+    watch_connection_with(ffi::gc_register_mouse_current_callback, callback)
+}
+
+/// Register a closure that fires when racing wheels connect (`true`) or disconnect (`false`).
+#[must_use]
+pub fn watch_racing_wheel_connections<F>(callback: F) -> ConnectionWatcher
+where
+    F: Fn(bool) + Send + Sync + 'static,
+{
+    watch_connection_with(ffi::gc_register_racing_wheel_connection_callback, callback)
+}
+
+/// Register a closure that fires when controller user customizations change.
+#[must_use]
+pub fn watch_controller_customizations<F>(callback: F) -> NotificationWatcher
+where
+    F: Fn() + Send + Sync + 'static,
+{
+    watch_notification_with(
+        ffi::gc_register_controller_customizations_callback,
+        callback,
+    )
 }
 
 unsafe extern "C" fn discovery_trampoline(_user_info: *mut c_void) {
@@ -447,6 +555,27 @@ pub fn rumble_first_controller(intensity: f32, sharpness: f32, duration: f64) ->
     unsafe { ffi::gc_first_controller_rumble(intensity, sharpness, duration) }
 }
 
+/// Play a continuous haptic on the first controller using a specific haptics locality.
+#[must_use]
+pub fn rumble_first_controller_with_locality(
+    locality: GCHapticsLocality,
+    intensity: f32,
+    sharpness: f32,
+    duration: f64,
+) -> bool {
+    let Ok(locality) = CString::new(locality.as_str()) else {
+        return false;
+    };
+    unsafe {
+        ffi::gc_first_controller_rumble_with_locality(
+            locality.as_ptr(),
+            intensity,
+            sharpness,
+            duration,
+        )
+    }
+}
+
 /// Which `DualSense` trigger to address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DualSenseTrigger {
@@ -541,6 +670,38 @@ pub fn dualsense_trigger_slope_feedback(
             end_position,
             start_strength,
             end_strength,
+        )
+    }
+}
+
+/// Apply per-position resistive strengths to a `DualSense` trigger.
+#[must_use]
+pub fn dualsense_trigger_feedback_resistive_strengths(
+    which: DualSenseTrigger,
+    strengths: GCDualSenseAdaptiveTriggerPositionalResistiveStrengths,
+) -> bool {
+    unsafe {
+        ffi::gc_dualsense_set_trigger_feedback_resistive_strengths(
+            which as i32,
+            strengths.values.as_ptr(),
+            strengths.values.len(),
+        )
+    }
+}
+
+/// Apply per-position vibration amplitudes to a `DualSense` trigger.
+#[must_use]
+pub fn dualsense_trigger_vibration_amplitudes(
+    which: DualSenseTrigger,
+    amplitudes: GCDualSenseAdaptiveTriggerPositionalAmplitudes,
+    frequency: f32,
+) -> bool {
+    unsafe {
+        ffi::gc_dualsense_set_trigger_vibration_amplitudes(
+            which as i32,
+            amplitudes.values.as_ptr(),
+            amplitudes.values.len(),
+            frequency,
         )
     }
 }
