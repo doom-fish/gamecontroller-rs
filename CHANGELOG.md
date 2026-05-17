@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.1] - 2026-05-17
+
+### Changed
+
+- Added `@available(macOS 26.2, *)` guard on `physicalInputExtentsDetailsPayload`
+  and `if #available(macOS 26.2, *)` guard around `GCLinearInput.physicalExtents`
+  access in `linearInputDetailsPayload` so the Swift bridge compiles against
+  SDKs that predate macOS 26 (Tahoe).
+- Added `if #available(macOS 26.0, *)` guard around `GCButtonElement.forceInput`
+  access in `buttonElementDetailsPayload` for the same reason.
+- All `@_cdecl` thunks that transitively reach the macOS 26+ code paths already
+  have matching `#available` fallbacks returning safe defaults (`nil` / empty
+  payload) on older OS versions.
+
 ## [0.8.0] - 2026-05-17
 
 ### Added
