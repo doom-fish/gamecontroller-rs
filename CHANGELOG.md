@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.8.4] - 2026-05-18
+
+- Add one-line docs across the public safe and FFI surfaces, raising public-item rustdoc coverage to 99.2%.
+
 ## [0.8.3] - 2026-05-18
 
 - Widen doom-fish-utils version bound to `<0.3` so 0.2.x resolves.

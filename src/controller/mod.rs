@@ -15,13 +15,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::ffi;
 
+/// Re-exports the `GameController` framework surface for this item.
 pub use constants::*;
+/// Re-exports the `GameController` framework surface for this item.
 pub use details::*;
 
 /// A point-in-time snapshot of one connected `GCController`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Controller {
+/// Mirrors the `GameController` framework property for `vendor_name`.
     pub vendor_name: String,
+/// Mirrors the `GameController` framework property for `product_category`.
     pub product_category: String,
     /// Player index assigned by the OS (0 for unassigned, then 1..=4).
     pub player_index: i32,
@@ -31,50 +35,73 @@ pub struct Controller {
     /// profile (most Xbox / `DualShock` / `DualSense` / `MFi` pads do).
     pub has_extended_gamepad: bool,
 
+/// Mirrors the `GameController` framework property for `buttons`.
     pub buttons: Buttons,
+/// Mirrors the `GameController` framework property for `triggers`.
     pub triggers: Triggers,
+/// Mirrors the `GameController` framework property for `thumbsticks`.
     pub thumbsticks: Thumbsticks,
+/// Mirrors the `GameController` framework property for `dpad`.
     pub dpad: Dpad,
 }
 
+/// Mirrors the `GameController` framework counterpart for `Buttons`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Buttons {
     /// `0.0..=1.0` — analog pressure on Xbox-style buttons (`DualShock` /
     /// `DualSense` report 0/1 only).
     pub a: f32,
+/// Mirrors the `GameController` framework property for `b`.
     pub b: f32,
+/// Mirrors the `GameController` framework property for `x`.
     pub x: f32,
+/// Mirrors the `GameController` framework property for `y`.
     pub y: f32,
+/// Mirrors the `GameController` framework property for `menu`.
     pub menu: f32,
+/// Mirrors the `GameController` framework property for `options`.
     pub options: f32,
+/// Mirrors the `GameController` framework property for `home`.
     pub home: f32,
 }
 
+/// Mirrors the `GameController` framework counterpart for `Triggers`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Triggers {
     /// `0.0..=1.0` analog triggers + shoulder buttons.
     pub left_shoulder: f32,
+/// Mirrors the `GameController` framework property for `right_shoulder`.
     pub right_shoulder: f32,
+/// Mirrors the `GameController` framework property for `left_trigger`.
     pub left_trigger: f32,
+/// Mirrors the `GameController` framework property for `right_trigger`.
     pub right_trigger: f32,
 }
 
+/// Mirrors the `GameController` framework counterpart for `Thumbsticks`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Thumbsticks {
     /// `-1.0..=1.0` per axis.
     pub left_x: f32,
+/// Mirrors the `GameController` framework property for `left_y`.
     pub left_y: f32,
+/// Mirrors the `GameController` framework property for `right_x`.
     pub right_x: f32,
+/// Mirrors the `GameController` framework property for `right_y`.
     pub right_y: f32,
 }
 
+/// Mirrors the `GameController` framework counterpart for `Dpad`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Dpad {
     /// `0.0..=1.0` — pressed amount per direction (most controllers
     /// report 0/1, but some report fractional pressure).
     pub up: f32,
+/// Mirrors the `GameController` framework property for `down`.
     pub down: f32,
+/// Mirrors the `GameController` framework property for `left`.
     pub left: f32,
+/// Mirrors the `GameController` framework property for `right`.
     pub right: f32,
 }
 
@@ -153,9 +180,13 @@ fn take_string(p: *mut core::ffi::c_char) -> String {
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BatteryState {
+/// Mirrors the `GameController` framework case `Unknown`.
     Unknown,
+/// Mirrors the `GameController` framework case `Discharging`.
     Discharging,
+/// Mirrors the `GameController` framework case `Charging`.
     Charging,
+/// Mirrors the `GameController` framework case `Full`.
     Full,
 }
 
@@ -163,12 +194,17 @@ pub enum BatteryState {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ControllerExtras {
+/// Mirrors the `GameController` framework property for `has_motion`.
     pub has_motion: bool,
+/// Mirrors the `GameController` framework property for `has_haptics`.
     pub has_haptics: bool,
+/// Mirrors the `GameController` framework property for `has_light`.
     pub has_light: bool,
+/// Mirrors the `GameController` framework property for `has_battery`.
     pub has_battery: bool,
     /// `0.0..=1.0`, or `None` if no battery is exposed.
     pub battery_level: Option<f32>,
+/// Mirrors the `GameController` framework property for `battery_state`.
     pub battery_state: BatteryState,
     /// Gravity vector (x, y, z) in g-units, or `None` if no motion.
     pub gravity: Option<(f64, f64, f64)>,
@@ -305,8 +341,11 @@ pub fn keyboard_is_key_pressed(keycode: isize) -> bool {
 /// Snapshot of the three primary mouse buttons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MouseButtons {
+/// Mirrors the `GameController` framework property for `left`.
     pub left: bool,
+/// Mirrors the `GameController` framework property for `right`.
     pub right: bool,
+/// Mirrors the `GameController` framework property for `middle`.
     pub middle: bool,
 }
 
@@ -628,7 +667,9 @@ pub fn rumble_first_controller_with_locality(
 /// Which `DualSense` trigger to address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DualSenseTrigger {
+/// Mirrors the `GameController` framework case `Left`.
     Left = 0,
+/// Mirrors the `GameController` framework case `Right`.
     Right = 1,
 }
 
