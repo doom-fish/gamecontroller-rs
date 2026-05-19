@@ -143,6 +143,9 @@ pub struct ButtonInputState {
     pub touched: bool,
 }
 
+/// Apple-style alias for [`ButtonInputState`].
+pub type GCButtonInput = ButtonInputState;
+
 /// Mirrors the `GameController` framework counterpart for `AxisInputState`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -538,6 +541,9 @@ pub struct SwitchInputState {
 /// Mirrors the `GameController` framework property for `can_wrap`.
     pub can_wrap: bool,
 }
+
+/// Apple-style alias for [`SwitchInputState`].
+pub type GCSwitchInput = SwitchInputState;
 
 /// Mirrors the `GameController` framework counterpart for `NamedButtonElementState`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]

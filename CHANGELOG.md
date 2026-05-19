@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.6] - 2026-05-19
+
+### Added
+
+- Added the Apple-style `GCButtonInput` and `GCSwitchInput` aliases for racing-wheel snapshots, mapping them onto `ButtonInputState` and `SwitchInputState` in the safe Rust API.
+
 ## [0.8.4] - 2026-05-18
 
 - Add one-line docs across the public safe and FFI surfaces, raising public-item rustdoc coverage to 99.2%.

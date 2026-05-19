@@ -20,6 +20,7 @@ COVERAGE_PCT: 100.00%
 | GCAxisElement | protocol | GCAxisElement.h | NamedAxisElementState; AxisElementState |
 | GCAxisElementName | typedef | GCInputNames.h | GCAxisElementName / GCInputAxisName aliases; input_names::STEERING_WHEEL |
 | GCAxisInput | protocol | GCAxisInput.h | AxisInputDetails; current_controller_physical_input_elements() |
+| GCButtonInput | protocol | GCRacingWheelInput.h | `GCButtonInput` alias to `ButtonInputState`; `RacingWheelInputDetails::{accelerator_pedal, brake_pedal, clutch_pedal}` |
 | GCButtonElement | protocol | GCButtonElement.h | NamedButtonElementState; ButtonInputState |
 | GCButtonElementName | typedef | GCInputNames.h | GCButtonElementName / GCInputButtonName aliases; input_names::BUTTON_A |
 | GCColor | interface | GCColor.h | Color; DeviceLightDetails.color; set_first_controller_light_color() |
@@ -436,6 +437,7 @@ COVERAGE_PCT: 100.00%
 | GCSteeringWheelElement | interface | GCSteeringWheelElement.h | SteeringWheelDetails; RacingWheelInputDetails.wheel |
 | GCSwitchElement | protocol | GCSwitchElement.h | NamedSwitchElementState; SwitchInputState |
 | GCSwitchElementName | typedef | GCInputNames.h | GCSwitchElementName / GCInputSwitchName aliases |
+| GCSwitchInput | protocol | GCRacingWheelInput.h | `GCSwitchInput` alias to `SwitchInputState`; `GearShifterDetails` pattern metadata within `RacingWheelInputDetails::shifter` |
 | GCSwitchPositionInput | protocol | GCSwitchPositionInput.h | SwitchInputState; GearShifterDetails.pattern_* |
 | GCSystemGestureState | typedef enum | GCControllerElement.h | SystemGestureState; ControllerElementDetails.preferred_system_gesture_state |
 | GCTouchState | typedef enum | GCControllerTouchpad.h | TouchState |
