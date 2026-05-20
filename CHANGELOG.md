@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.8] - 2026-05-20
+
+- Phase 32 completeness + async sweep.
+- Added an async wireless-controller discovery future in `gamecontroller::async_api`.
+- Refreshed the coverage docs against `MacOSX26.5.sdk`.
+
 ## [0.8.7] - 2026-05-20
 
 - Widen `doom-fish-utils` dependency bound to `<0.4` so the 0.3.x SPSC-ring release resolves cleanly. No source changes.

@@ -11,10 +11,11 @@
 //! gamecontroller = { version = "0.8", features = ["async"] }
 //! ```
 //!
-//! # Stream surfaces
+//! # Async surfaces
 //!
-//! | Stream type | Source |
+//! | Type | Source |
 //! |---|---|
+//! | [`WirelessDiscoveryFuture`] | `GCController.startWirelessControllerDiscovery(completionHandler:)` |
 //! | [`ControllerConnectionStream`] | `GCControllerDidConnect` / `GCControllerDidDisconnect` |
 //! | [`GamepadValueStream`] | `GCExtendedGamepad.valueChangedHandler` |
 //! | [`KeyboardKeyStream`] | `GCKeyboard.keyboardInput.keyChangedHandler` |
@@ -25,11 +26,16 @@
 #![cfg(feature = "async")]
 #![allow(clippy::module_name_repetitions, clippy::struct_field_names)]
 
-use crate::controller::{Buttons, Dpad, Thumbsticks, Triggers};
+use crate::controller::{self, Buttons, Dpad, Thumbsticks, Triggers};
+use crate::error::GameControllerError;
 use crate::ffi::ControllerInfoRaw;
 use core::ffi::{c_char, c_void};
+use doom_fish_utils::completion::{AsyncCompletion, AsyncCompletionFuture};
 use doom_fish_utils::stream::{AsyncStreamSender, BoundedAsyncStream, NextItem};
 use std::ffi::CStr;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 // ── FFI declarations ──────────────────────────────────────────────────────────
 
@@ -136,6 +142,39 @@ fn make_pair<T>(capacity: usize) -> (BoundedAsyncStream<T>, *mut AsyncStreamSend
     let (stream, sender) = BoundedAsyncStream::new(capacity);
     let sender_ptr = Box::into_raw(Box::new(sender));
     (stream, sender_ptr)
+}
+
+/// Future returned by [`start_wireless_controller_discovery`].
+#[must_use = "futures do nothing unless awaited"]
+pub struct WirelessDiscoveryFuture {
+    inner: AsyncCompletionFuture<()>,
+}
+
+impl std::fmt::Debug for WirelessDiscoveryFuture {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WirelessDiscoveryFuture")
+            .finish_non_exhaustive()
+    }
+}
+
+impl Future for WirelessDiscoveryFuture {
+    type Output = Result<(), GameControllerError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.inner)
+            .poll(cx)
+            .map(|result| result.map_err(|_| GameControllerError::NullBridgeResponse))
+    }
+}
+
+/// Start `GameController`'s wireless discovery flow and await its completion.
+pub fn start_wireless_controller_discovery() -> WirelessDiscoveryFuture {
+    let (future, ctx) = AsyncCompletion::create();
+    let ctx = ctx as usize;
+    controller::start_wireless_controller_discovery_with_callback(move || unsafe {
+        AsyncCompletion::complete_ok(ctx as *mut c_void, ());
+    });
+    WirelessDiscoveryFuture { inner: future }
 }
 
 // ── 1. ControllerConnectionStream ─────────────────────────────────────────────

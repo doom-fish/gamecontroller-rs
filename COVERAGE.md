@@ -1,10 +1,10 @@
-# GameController v0.7.2 coverage sweep
+# GameController v0.8.8 coverage sweep
 
-This sweep audited the requested GameController families against the macOS 26.2 SDK headers and the Rust/Swift surface shipped by this crate.
+This sweep audited the requested GameController families against the macOS 26.5 SDK headers and the Rust/Swift surface shipped by this crate.
 
 | Family | Status | Notes |
 | --- | --- | --- |
-| `GCController` | ✅ | Discovery/current/background events/wireless discovery plus rich controller snapshots are wrapped, including current-controller/customization notifications via watcher helpers. Snapshot-constructor APIs remain intentionally omitted, matching prior crate scope. |
+| `GCController` | ✅ | Discovery/current/background events/wireless discovery plus rich controller snapshots are wrapped, including current-controller/customization notifications via watcher helpers and the async wireless-discovery future. Snapshot-constructor APIs remain intentionally omitted, matching prior crate scope. |
 | `GCControllerElement` | ✅ | `current_controller_elements()` now exposes legacy `GCControllerElement` metadata plus typed system-gesture state for the current controller's visible profile elements. |
 | `GCKeyboard` | ✅ | `keyboard_is_*` polling helpers remain, `keyboard_snapshot()` exposes richer `GCKeyboardInput` / `GCPhysicalInputProfile` data, and `watch_keyboard_connections()` covers keyboard notifications. |
 | `GCMouse` | ✅ | `mouse_is_connected()` / `mouse_button_states()` remain, `mouse_snapshot()` exposes scroll/auxiliary buttons, and dedicated mouse connection/current watchers cover the lifecycle notifications. |

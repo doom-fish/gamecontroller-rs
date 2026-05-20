@@ -2,7 +2,7 @@
 
 Safe Rust bindings for Apple's [GameController](https://developer.apple.com/documentation/gamecontroller) framework on macOS.
 
-> **Status:** `0.7.2` closes the remaining public-symbol gaps with generic `GCDevice` / `GCControllerElement` snapshots, typed haptics/product-category constants, locality-aware rumble, richer notification watchers, and current-controller physical-input element metadata on top of the existing `GCController.input`, keyboard/mouse, racing-wheel, light, haptics, and event-controller coverage.
+> **Status:** `0.8.8` keeps the full audited public-symbol coverage and now also offers an executor-agnostic wireless-discovery future on top of the existing generic `GCDevice` / `GCControllerElement` snapshots, typed haptics/product-category constants, locality-aware rumble, richer notification watchers, and current-controller physical-input element metadata.
 
 ## Quick start
 
@@ -61,8 +61,25 @@ fn main() -> Result<(), GameControllerError> {
 - `rumble_first_controller_with_locality()` plus `DeviceHapticsDetails::supported_locality_constants()` for typed haptics locality coverage.
 - `watch_connections()`, `watch_current_controller()`, `watch_keyboard_connections()`, `watch_mouse_connections()`, `watch_mouse_current()`, `watch_racing_wheel_connections()`, and `watch_controller_customizations()` for notification coverage.
 - `should_monitor_background_events()` / `set_should_monitor_background_events()`.
-- `start_wireless_controller_discovery()` and `stop_wireless_controller_discovery()`.
+- `start_wireless_controller_discovery()`, `stop_wireless_controller_discovery()`, and `async_api::start_wireless_controller_discovery()`.
 - `dualsense_trigger_*` helpers plus `dualsense_trigger_feedback_resistive_strengths()` / `dualsense_trigger_vibration_amplitudes()` for raw adaptive-trigger array helpers.
+
+## Async API
+
+Enable the `async` feature to await wireless discovery without wiring a callback:
+
+```toml
+[dependencies]
+gamecontroller = { version = "0.8.8", features = ["async"] }
+```
+
+```rust,no_run
+#[cfg(feature = "async")]
+async fn example() -> Result<(), gamecontroller::GameControllerError> {
+    gamecontroller::async_api::start_wireless_controller_discovery().await?;
+    Ok(())
+}
+```
 
 ## Examples
 

@@ -1,9 +1,9 @@
-# gamecontroller-rs coverage audit (vs MacOSX26.2.sdk)
+# gamecontroller-rs coverage audit (vs MacOSX26.5.sdk)
 
 This audit compares the public macOS `GameController.framework` surface against the safe/public Rust API and Swift bridge in `gamecontroller-rs`. It filters out symbols unavailable on macOS and treats Apple-deprecated snapshot/profile APIs as exempt per the audit instructions.
 Filtered out 7 unavailable symbols (the visionOS-only `GCStylus` family plus spatial-stylus constants).
 
-v0.7.2 closes the remaining notifications, generic device/element metadata, haptics locality, product-category, and raw geometry/adaptive-trigger gaps.
+v0.8.8 closes the remaining notifications, generic device/element metadata, haptics locality, product-category, and raw geometry/adaptive-trigger gaps, and now also adds an async wireless-discovery future.
 Public macOS symbol coverage is now complete for the non-exempt surface.
 
 SDK_PUBLIC_SYMBOLS: 444
@@ -24,7 +24,7 @@ COVERAGE_PCT: 100.00%
 | GCButtonElement | protocol | GCButtonElement.h | NamedButtonElementState; ButtonInputState |
 | GCButtonElementName | typedef | GCInputNames.h | GCButtonElementName / GCInputButtonName aliases; input_names::BUTTON_A |
 | GCColor | interface | GCColor.h | Color; DeviceLightDetails.color; set_first_controller_light_color() |
-| GCController | interface | GCController.h | Controller; connected_controllers(); connected_controller_details(); current_controller_snapshot(); watch_connections(); start_wireless_controller_discovery() |
+| GCController | interface | GCController.h | Controller; connected_controllers(); connected_controller_details(); current_controller_snapshot(); watch_connections(); start_wireless_controller_discovery(); async_api::start_wireless_controller_discovery() |
 | GCControllerAxisInput | interface | GCControllerAxisInput.h | AxisInputState; PhysicalInputProfileDetails.axes |
 | GCControllerButtonInput | interface | GCControllerButtonInput.h | ButtonInputState; GamepadDetails/MicroGamepadDetails/ExtendedGamepadDetails |
 | GCControllerDidBecomeCurrentNotification | constant | GCController.h | watch_current_controller() |
