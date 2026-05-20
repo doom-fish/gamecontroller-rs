@@ -161,16 +161,8 @@ pub fn connected_controllers() -> Vec<Controller> {
 }
 
 fn take_string(p: *mut core::ffi::c_char) -> String {
-    if p.is_null() {
-        return String::new();
-    }
-    // SAFETY: `p` is a non-null NUL-terminated string allocated by Swift and remains valid until `gc_string_free` below.
-    let s = unsafe { core::ffi::CStr::from_ptr(p) }
-        .to_string_lossy()
-        .into_owned();
-    // SAFETY: `p` is the exact pointer returned by Swift and is freed exactly once after copying into Rust.
-    unsafe { ffi::gc_string_free(p) };
-    s
+    unsafe { doom_fish_utils::ffi_string::take_owned_cstring_c(p, |p| ffi::gc_string_free(p)) }
+        .unwrap_or_default()
 }
 
 // ---- v0.2: motion / battery / haptics / light snapshots ----

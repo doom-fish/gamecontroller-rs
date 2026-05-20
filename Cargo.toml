@@ -1,6 +1,6 @@
 [package]
 name = "gamecontroller"
-version = "0.8.8"
+version = "0.8.9"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/doom-fish/gamecontroller-rs"
@@ -39,12 +39,12 @@ crate-type = ["lib"]
 
 [features]
 default = []
-async = ["dep:doom-fish-utils"]
+async = []
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-doom-fish-utils = { path = "../doom-fish-utils", version = ">=0.1, <0.4", optional = true }
+doom-fish-utils = { path = "../doom-fish-utils", version = ">=0.1, <0.4" }
 
 [dev-dependencies]
 regex-lite = "0.1"
