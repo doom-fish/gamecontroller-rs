@@ -124,8 +124,8 @@ pub fn connected_controllers() -> Vec<Controller> {
             vendor_name: take_string(raw.vendor_name),
             product_category: take_string(raw.product_category),
             player_index: raw.player_index,
-            is_attached_to_device: raw.is_attached_to_device,
-            has_extended_gamepad: raw.has_extended_gamepad,
+            is_attached_to_device: raw.is_attached_to_device != 0,
+            has_extended_gamepad: raw.has_extended_gamepad != 0,
             buttons: Buttons {
                 a: raw.button_a,
                 b: raw.button_b,
@@ -232,10 +232,10 @@ pub fn all_controller_extras() -> Vec<ControllerExtras> {
 
 const fn empty_extras_raw() -> ffi::ExtraInfoRaw {
     ffi::ExtraInfoRaw {
-        has_motion: false,
-        has_haptics: false,
-        has_light: false,
-        has_battery: false,
+        has_motion: 0,
+        has_haptics: 0,
+        has_light: 0,
+        has_battery: 0,
         battery_level: -1.0,
         battery_state: 0,
         gravity_x: 0.0,
@@ -255,22 +255,22 @@ const fn extras_from_raw(raw: &ffi::ExtraInfoRaw) -> ControllerExtras {
         _ => BatteryState::Unknown,
     };
     ControllerExtras {
-        has_motion: raw.has_motion,
-        has_haptics: raw.has_haptics,
-        has_light: raw.has_light,
-        has_battery: raw.has_battery,
-        battery_level: if raw.has_battery {
+        has_motion: raw.has_motion != 0,
+        has_haptics: raw.has_haptics != 0,
+        has_light: raw.has_light != 0,
+        has_battery: raw.has_battery != 0,
+        battery_level: if raw.has_battery != 0 {
             Some(raw.battery_level)
         } else {
             None
         },
         battery_state,
-        gravity: if raw.has_motion {
+        gravity: if raw.has_motion != 0 {
             Some((raw.gravity_x, raw.gravity_y, raw.gravity_z))
         } else {
             None
         },
-        user_acceleration: if raw.has_motion {
+        user_acceleration: if raw.has_motion != 0 {
             Some((
                 raw.user_acceleration_x,
                 raw.user_acceleration_y,

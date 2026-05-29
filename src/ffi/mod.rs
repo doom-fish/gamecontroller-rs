@@ -19,9 +19,15 @@ pub struct ControllerInfoRaw {
 /// Mirrors the `GameController` framework property for `player_index`.
     pub player_index: i32,
 /// Mirrors the `GameController` framework property for `is_attached_to_device`.
-    pub is_attached_to_device: bool,
+///
+/// Read as `u8` (the C `_Bool` ABI Swift emits) rather than `bool` so an
+/// out-of-range byte from the FFI boundary can never produce an invalid `bool`
+/// (which would be undefined behaviour). Convert with `!= 0` at the read site.
+    pub is_attached_to_device: u8,
 /// Mirrors the `GameController` framework property for `has_extended_gamepad`.
-    pub has_extended_gamepad: bool,
+///
+/// Read as `u8`; see [`ControllerInfoRaw::is_attached_to_device`].
+    pub has_extended_gamepad: u8,
 
 /// Mirrors the `GameController` framework property for `button_a`.
     pub button_a: f32,
@@ -71,13 +77,17 @@ pub struct ControllerInfoRaw {
 #[repr(C)]
 pub struct ExtraInfoRaw {
 /// Mirrors the `GameController` framework property for `has_motion`.
-    pub has_motion: bool,
+///
+/// Read as `u8` (the C `_Bool` ABI Swift emits) rather than `bool` so an
+/// out-of-range byte from the FFI boundary can never produce an invalid `bool`
+/// (undefined behaviour). Convert with `!= 0` at the read site.
+    pub has_motion: u8,
 /// Mirrors the `GameController` framework property for `has_haptics`.
-    pub has_haptics: bool,
+    pub has_haptics: u8,
 /// Mirrors the `GameController` framework property for `has_light`.
-    pub has_light: bool,
+    pub has_light: u8,
 /// Mirrors the `GameController` framework property for `has_battery`.
-    pub has_battery: bool,
+    pub has_battery: u8,
 /// Mirrors the `GameController` framework property for `battery_level`.
     pub battery_level: f32,
 /// Mirrors the `GameController` framework property for `battery_state`.
@@ -94,6 +104,41 @@ pub struct ExtraInfoRaw {
     pub user_acceleration_y: f64,
 /// Mirrors the `GameController` framework property for `user_acceleration_z`.
     pub user_acceleration_z: f64,
+}
+
+// MARK: - ABI Layout Assertions
+//
+// `ControllerInfoRaw` and `ExtraInfoRaw` are read directly from pointers handed
+// across the Rust <-> Swift `@_cdecl` FFI boundary (see `controller::mod` and
+// `async_api`). Their Swift counterparts are `GCControllerInfoRaw` /
+// `GCExtraInfoRaw` in `swift-bridge/Sources/GameControllerBridge/Core.swift`.
+//
+// These compile-time assertions pin the exact size/alignment shared with Swift:
+// any change to a field type, field order, or padding fails the build instead of
+// silently corrupting marshalled data at runtime. The crate's MSRV (1.76) predates
+// `core::mem::offset_of!` (stabilised in 1.77), so only `size_of`/`align_of` are
+// asserted here. If you change the layout you MUST mirror it in Core.swift.
+use core::mem::{align_of, size_of};
+
+const _: () = assert!(size_of::<ControllerInfoRaw>() == 104);
+const _: () = assert!(align_of::<ControllerInfoRaw>() == 8);
+
+const _: () = assert!(size_of::<ExtraInfoRaw>() == 64);
+const _: () = assert!(align_of::<ExtraInfoRaw>() == 8);
+
+/// Verifies at runtime that the `#[repr(C)]` FFI structs shared with the Swift
+/// bridge still have the size and alignment pinned by the compile-time
+/// assertions above.
+///
+/// Returns `true` when every layout matches. This mirrors the compile-time
+/// guards so that an ABI drift is also catchable from a normal `cargo test`
+/// run (see `tests/ffi_layout_tests.rs`).
+#[must_use]
+pub const fn verify_ffi_layout() -> bool {
+    size_of::<ControllerInfoRaw>() == 104
+        && align_of::<ControllerInfoRaw>() == 8
+        && size_of::<ExtraInfoRaw>() == 64
+        && align_of::<ExtraInfoRaw>() == 8
 }
 
 /// Mirrors the `GameController` framework counterpart for `ConnectionCallback`.
