@@ -144,6 +144,20 @@ fn make_pair<T>(capacity: usize) -> (BoundedAsyncStream<T>, *mut AsyncStreamSend
     (stream, sender_ptr)
 }
 
+/// Run a stream-callback body, swallowing any panic so it cannot unwind across
+/// the `extern "C"` boundary back into Swift (which would be undefined
+/// behavior). These callbacks fire rapidly on every input change.
+fn catch_cb_panic(site: &str, f: impl FnOnce()) {
+    if let Err(payload) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        let message = payload
+            .downcast_ref::<&str>()
+            .map(|message| (*message).to_owned())
+            .or_else(|| payload.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "non-string panic payload".to_owned());
+        eprintln!("gamecontroller: panic in {site} caught at C ABI boundary: {message}");
+    }
+}
+
 /// Future returned by [`start_wireless_controller_discovery`].
 #[must_use = "futures do nothing unless awaited"]
 pub struct WirelessDiscoveryFuture {
@@ -214,20 +228,22 @@ pub struct ControllerConnectionStream {
 }
 
 unsafe extern "C" fn controller_connection_cb(kind: i32, payload: *const c_void, ctx: *mut c_void) {
-    // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-    let sender = unsafe { &*ctx.cast::<AsyncStreamSender<ControllerConnectionEvent>>() };
-    let vendor_name = if payload.is_null() {
-        None
-    } else {
-        // SAFETY: `payload` is a non-null NUL-terminated string owned by the Swift bridge for the duration of this callback.
-        unsafe { CStr::from_ptr(payload.cast::<c_char>()) }
-            .to_str()
-            .ok()
-            .map(str::to_owned)
-    };
-    sender.push(ControllerConnectionEvent {
-        vendor_name,
-        connected: kind == 0,
+    catch_cb_panic("controller_connection_cb", || {
+        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
+        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<ControllerConnectionEvent>>() };
+        let vendor_name = if payload.is_null() {
+            None
+        } else {
+            // SAFETY: `payload` is a non-null NUL-terminated string owned by the Swift bridge for the duration of this callback.
+            unsafe { CStr::from_ptr(payload.cast::<c_char>()) }
+                .to_str()
+                .ok()
+                .map(str::to_owned)
+        };
+        sender.push(ControllerConnectionEvent {
+            vendor_name,
+            connected: kind == 0,
+        });
     });
 }
 
@@ -305,38 +321,40 @@ unsafe extern "C" fn gamepad_value_cb(kind: i32, payload: *const c_void, ctx: *m
     if payload.is_null() {
         return;
     }
-    // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-    let sender = unsafe { &*ctx.cast::<AsyncStreamSender<GamepadValueEvent>>() };
-    // SAFETY: `payload` points to a stack-allocated `ControllerInfoRaw` whose lifetime spans this callback.
-    let raw = unsafe { &*payload.cast::<ControllerInfoRaw>() };
-    sender.push(GamepadValueEvent {
-        buttons: Buttons {
-            a: raw.button_a,
-            b: raw.button_b,
-            x: raw.button_x,
-            y: raw.button_y,
-            menu: raw.menu_button,
-            options: raw.options_button,
-            home: raw.home_button,
-        },
-        triggers: Triggers {
-            left_shoulder: raw.left_shoulder,
-            right_shoulder: raw.right_shoulder,
-            left_trigger: raw.left_trigger,
-            right_trigger: raw.right_trigger,
-        },
-        thumbsticks: Thumbsticks {
-            left_x: raw.left_thumbstick_x,
-            left_y: raw.left_thumbstick_y,
-            right_x: raw.right_thumbstick_x,
-            right_y: raw.right_thumbstick_y,
-        },
-        dpad: Dpad {
-            up: raw.dpad_up,
-            down: raw.dpad_down,
-            left: raw.dpad_left,
-            right: raw.dpad_right,
-        },
+    catch_cb_panic("gamepad_value_cb", || {
+        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
+        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<GamepadValueEvent>>() };
+        // SAFETY: `payload` points to a stack-allocated `ControllerInfoRaw` whose lifetime spans this callback.
+        let raw = unsafe { &*payload.cast::<ControllerInfoRaw>() };
+        sender.push(GamepadValueEvent {
+            buttons: Buttons {
+                a: raw.button_a,
+                b: raw.button_b,
+                x: raw.button_x,
+                y: raw.button_y,
+                menu: raw.menu_button,
+                options: raw.options_button,
+                home: raw.home_button,
+            },
+            triggers: Triggers {
+                left_shoulder: raw.left_shoulder,
+                right_shoulder: raw.right_shoulder,
+                left_trigger: raw.left_trigger,
+                right_trigger: raw.right_trigger,
+            },
+            thumbsticks: Thumbsticks {
+                left_x: raw.left_thumbstick_x,
+                left_y: raw.left_thumbstick_y,
+                right_x: raw.right_thumbstick_x,
+                right_y: raw.right_thumbstick_y,
+            },
+            dpad: Dpad {
+                up: raw.dpad_up,
+                down: raw.dpad_down,
+                left: raw.dpad_left,
+                right: raw.dpad_right,
+            },
+        });
     });
 }
 
@@ -407,14 +425,16 @@ unsafe extern "C" fn keyboard_key_cb(kind: i32, payload: *const c_void, ctx: *mu
     if payload.is_null() {
         return;
     }
-    // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-    let sender = unsafe { &*ctx.cast::<AsyncStreamSender<KeyboardKeyEvent>>() };
-    // SAFETY: `payload` points to a stack-allocated `RawKeyEvent` whose lifetime spans this callback.
-    let raw = unsafe { &*payload.cast::<RawKeyEvent>() };
-    sender.push(KeyboardKeyEvent {
-        keycode: raw.keycode,
-        pressed: raw.pressed,
-        value: raw.value,
+    catch_cb_panic("keyboard_key_cb", || {
+        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
+        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<KeyboardKeyEvent>>() };
+        // SAFETY: `payload` points to a stack-allocated `RawKeyEvent` whose lifetime spans this callback.
+        let raw = unsafe { &*payload.cast::<RawKeyEvent>() };
+        sender.push(KeyboardKeyEvent {
+            keycode: raw.keycode,
+            pressed: raw.pressed,
+            value: raw.value,
+        });
     });
 }
 
@@ -487,30 +507,32 @@ unsafe extern "C" fn mouse_input_cb(kind: i32, payload: *const c_void, ctx: *mut
     if payload.is_null() {
         return;
     }
-    // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-    let sender = unsafe { &*ctx.cast::<AsyncStreamSender<MouseInputEvent>>() };
-    // SAFETY: `payload` points to a stack-allocated `RawMouseEvent` whose lifetime spans this callback.
-    let raw = unsafe { &*payload.cast::<RawMouseEvent>() };
-    let event = match kind {
-        0 => MouseInputEvent::Moved {
-            delta_x: raw.delta_x,
-            delta_y: raw.delta_y,
-        },
-        1 => MouseInputEvent::LeftButton {
-            pressed: raw.pressed,
-            value: raw.value,
-        },
-        2 => MouseInputEvent::RightButton {
-            pressed: raw.pressed,
-            value: raw.value,
-        },
-        3 => MouseInputEvent::MiddleButton {
-            pressed: raw.pressed,
-            value: raw.value,
-        },
-        _ => return,
-    };
-    sender.push(event);
+    catch_cb_panic("mouse_input_cb", || {
+        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
+        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<MouseInputEvent>>() };
+        // SAFETY: `payload` points to a stack-allocated `RawMouseEvent` whose lifetime spans this callback.
+        let raw = unsafe { &*payload.cast::<RawMouseEvent>() };
+        let event = match kind {
+            0 => MouseInputEvent::Moved {
+                delta_x: raw.delta_x,
+                delta_y: raw.delta_y,
+            },
+            1 => MouseInputEvent::LeftButton {
+                pressed: raw.pressed,
+                value: raw.value,
+            },
+            2 => MouseInputEvent::RightButton {
+                pressed: raw.pressed,
+                value: raw.value,
+            },
+            3 => MouseInputEvent::MiddleButton {
+                pressed: raw.pressed,
+                value: raw.value,
+            },
+            _ => return,
+        };
+        sender.push(event);
+    });
 }
 
 impl MouseInputStream {
@@ -584,28 +606,30 @@ unsafe extern "C" fn motion_cb(kind: i32, payload: *const c_void, ctx: *mut c_vo
     if payload.is_null() {
         return;
     }
-    // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-    let sender = unsafe { &*ctx.cast::<AsyncStreamSender<MotionEvent>>() };
-    // SAFETY: `payload` points to a stack-allocated `RawMotionEvent` whose lifetime spans this callback.
-    let raw = unsafe { &*payload.cast::<RawMotionEvent>() };
-    sender.push(MotionEvent {
-        gravity: (raw.gravity_x, raw.gravity_y, raw.gravity_z),
-        user_acceleration: (
-            raw.user_acceleration_x,
-            raw.user_acceleration_y,
-            raw.user_acceleration_z,
-        ),
-        attitude: (
-            raw.attitude_x,
-            raw.attitude_y,
-            raw.attitude_z,
-            raw.attitude_w,
-        ),
-        rotation_rate: (
-            raw.rotation_rate_x,
-            raw.rotation_rate_y,
-            raw.rotation_rate_z,
-        ),
+    catch_cb_panic("motion_cb", || {
+        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
+        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<MotionEvent>>() };
+        // SAFETY: `payload` points to a stack-allocated `RawMotionEvent` whose lifetime spans this callback.
+        let raw = unsafe { &*payload.cast::<RawMotionEvent>() };
+        sender.push(MotionEvent {
+            gravity: (raw.gravity_x, raw.gravity_y, raw.gravity_z),
+            user_acceleration: (
+                raw.user_acceleration_x,
+                raw.user_acceleration_y,
+                raw.user_acceleration_z,
+            ),
+            attitude: (
+                raw.attitude_x,
+                raw.attitude_y,
+                raw.attitude_z,
+                raw.attitude_w,
+            ),
+            rotation_rate: (
+                raw.rotation_rate_x,
+                raw.rotation_rate_y,
+                raw.rotation_rate_z,
+            ),
+        });
     });
 }
 
@@ -678,15 +702,17 @@ unsafe extern "C" fn micro_gamepad_value_cb(kind: i32, payload: *const c_void, c
     if payload.is_null() {
         return;
     }
-    // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-    let sender = unsafe { &*ctx.cast::<AsyncStreamSender<MicroGamepadValueEvent>>() };
-    // SAFETY: `payload` points to a stack-allocated `RawMicroGamepadEvent` whose lifetime spans this callback.
-    let raw = unsafe { &*payload.cast::<RawMicroGamepadEvent>() };
-    sender.push(MicroGamepadValueEvent {
-        button_a: raw.button_a,
-        button_x: raw.button_x,
-        dpad_x: raw.dpad_x,
-        dpad_y: raw.dpad_y,
+    catch_cb_panic("micro_gamepad_value_cb", || {
+        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
+        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<MicroGamepadValueEvent>>() };
+        // SAFETY: `payload` points to a stack-allocated `RawMicroGamepadEvent` whose lifetime spans this callback.
+        let raw = unsafe { &*payload.cast::<RawMicroGamepadEvent>() };
+        sender.push(MicroGamepadValueEvent {
+            button_a: raw.button_a,
+            button_x: raw.button_x,
+            dpad_x: raw.dpad_x,
+            dpad_y: raw.dpad_y,
+        });
     });
 }
 
