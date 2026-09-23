@@ -8,7 +8,7 @@
 //!
 //! This module is only compiled when the `async` cargo feature is enabled:
 //! ```toml
-//! gamecontroller = { version = "0.8", features = ["async"] }
+//! gamecontroller = { version = "0.9", features = ["async"] }
 //! ```
 //!
 //! # Async surfaces

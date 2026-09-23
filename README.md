@@ -4,6 +4,13 @@ Safe Rust bindings for Apple's [GameController](https://developer.apple.com/docu
 
 > **Status:** `0.9.0` fixes use-after-free and data-race bugs in the watchers and async streams, lets several streams share one controller handler, adds per-controller `ControllerHandle`s for light, player index, rumble and `DualSense` triggers, and adds the macOS 26.4 side-button input names. The coverage audit counts top-level symbols, not methods (see [`COVERAGE.md`](COVERAGE.md)).
 
+## Installation
+
+```toml
+[dependencies]
+gamecontroller = "0.9"
+```
+
 ## Requirements
 
 - macOS 13 or newer (the Swift bridge's deployment target).
@@ -77,7 +84,7 @@ Enable the `async` feature to await wireless discovery without wiring a callback
 
 ```toml
 [dependencies]
-gamecontroller = { version = "0.8.8", features = ["async"] }
+gamecontroller = { version = "0.9", features = ["async"] }
 ```
 
 ```rust,no_run

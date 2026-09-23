@@ -1,5 +1,63 @@
 # Changelog
 
+All notable changes to `gamecontroller` are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.9.0] - Unreleased
+
+### Security
+
+- The Swift watcher registries, the pending wireless-discovery state and the
+  haptic-engine table are protected by locks. Creating or dropping watchers
+  on several threads, or starting discovery while its completion ran, raced
+  on them and could corrupt the heap.
+- Dropping a `ConnectionWatcher`, `NotificationWatcher` or async stream no
+  longer frees its closure or sender while a main-queue callback is still
+  using it. They live in a `doom_fish_utils` `CallbackContext` that the Swift
+  registration keeps alive until it is deallocated, and drop stops further
+  callbacks before it returns.
+- Async streams no longer overwrite single-slot handlers. A second stream of
+  the same kind took over the events, dropping either stream cleared the
+  handlers on every device, and handlers installed by the app were lost.
+
+### Fixed
+
+- `dualsense_trigger_feedback`, `_weapon`, `_vibration` and `_slope_feedback`
+  call Apple's start-position trigger modes instead of approximating them
+  with positional arrays, so weapon mode snaps as documented. The vibration
+  docs said `frequency` was in Hz; it is normalized to `0.0..=1.0`.
+- `set_first_controller_player_index` rejects values outside `-1..=3` instead
+  of storing an undefined `GCControllerPlayerIndex`.
+- Callback panics are contained by the shared `doom_fish_utils::panic_safe`
+  helper; the two local copies (one printing a misleading prefix) are gone.
+
+### Changed
+
+- **Breaking:** the raw `ffi` register functions take the context's retain
+  and release functions, and the raw `gc_first_controller_*` light,
+  player-index, battery and rumble functions and the `gc_dualsense_*`
+  functions are replaced by `gc_controller_handle_*` equivalents.
+- Streams attach their handlers on the main queue and share one handler per
+  device, chaining any handler that was already installed and restoring it
+  when the last stream is dropped.
+- `doom-fish-utils` requirement is `>=0.4.1, <0.5`; `rust-version` is 1.82.
+
+### Added
+
+- `ControllerHandle` for a specific controller: `all()`, `current()`,
+  `first()`, `first_dualsense()`, `vendor_name`, `product_category`,
+  `player_index`, `set_player_index`, `set_light`, `battery_level`, `rumble`,
+  `is_dualsense` and `set_dualsense_trigger` with `DualSenseTriggerEffect`.
+- `input_names::LEFT_SIDE_BUTTON`, `input_names::RIGHT_SIDE_BUTTON`
+  (macOS 26.4) and `input_names::side_buttons_available()`.
+
+## [0.8.10] - 2026-06-06
+
+- Contained panics in the async stream trampolines and pinned the raw FFI
+  struct layouts with compile-time size and alignment checks.
+
 ## [0.8.9] - 2026-05-20
 
 - Migrated local `take_string` body to call `doom_fish_utils::ffi_string::take_owned_cstring_c`. Centralises the duplicated FFI take-string pattern fleet-wide. No public API change.
