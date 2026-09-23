@@ -230,6 +230,7 @@ extern "C" {
 /// Calls the `GameController` framework counterpart for `gc_set_should_monitor_background_events`.
     pub fn gc_set_should_monitor_background_events(enabled: bool);
 
+    pub fn gc_input_side_button_name(right: bool) -> *mut c_char;
     pub fn gc_controller_handles_copy(out_handles: *mut *mut c_void, capacity: usize) -> usize;
     pub fn gc_controller_current_handle() -> *mut c_void;
     pub fn gc_controller_handle_retain(handle: *mut c_void) -> *mut c_void;

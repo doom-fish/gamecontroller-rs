@@ -1030,6 +1030,17 @@ pub mod input_names {
 /// Mirrors the `GameController` framework constant `MICRO_GAMEPAD_BUTTON_MENU`.
     pub const MICRO_GAMEPAD_BUTTON_MENU: GCButtonElementName =
         GCButtonElementName::new("Button Menu");
+    pub const LEFT_SIDE_BUTTON: GCInputButtonName = GCInputButtonName::new("Left Side Button");
+    pub const RIGHT_SIDE_BUTTON: GCInputButtonName = GCInputButtonName::new("Right Side Button");
+
+    #[must_use]
+    pub fn side_buttons_available() -> bool {
+        let name = unsafe { crate::ffi::gc_input_side_button_name(false) };
+        unsafe {
+            doom_fish_utils::ffi_string::take_owned_cstring_c(name, |p| crate::ffi::gc_string_free(p))
+        }
+        .is_some()
+    }
 
     /// Mirrors `GCInputBackLeftButton(position)`.
     #[must_use]

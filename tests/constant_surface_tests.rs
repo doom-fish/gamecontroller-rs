@@ -43,3 +43,30 @@ fn constant_surface_smoke() {
     assert_eq!(input_names::back_right_button(0), "Back Right Button 0");
     assert_eq!(input_names::arcade_button_name(1, 2), "Arcade Button 1, 2");
 }
+
+fn runtime_side_button_name(right: bool) -> Option<String> {
+    let raw = unsafe { gamecontroller::ffi::gc_input_side_button_name(right) };
+    if raw.is_null() {
+        return None;
+    }
+    let name = unsafe { std::ffi::CStr::from_ptr(raw) }
+        .to_string_lossy()
+        .into_owned();
+    unsafe { gamecontroller::ffi::gc_string_free(raw) };
+    Some(name)
+}
+
+#[test]
+fn side_button_names_match_the_running_system() {
+    assert_eq!(input_names::LEFT_SIDE_BUTTON.as_str(), "Left Side Button");
+    assert_eq!(input_names::RIGHT_SIDE_BUTTON.as_str(), "Right Side Button");
+
+    let left = runtime_side_button_name(false);
+    let right = runtime_side_button_name(true);
+    assert_eq!(input_names::side_buttons_available(), left.is_some());
+    assert_eq!(left.is_some(), right.is_some());
+    if let (Some(left), Some(right)) = (left, right) {
+        assert_eq!(left, input_names::LEFT_SIDE_BUTTON.as_str());
+        assert_eq!(right, input_names::RIGHT_SIDE_BUTTON.as_str());
+    }
+}
