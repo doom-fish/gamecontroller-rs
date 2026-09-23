@@ -238,7 +238,12 @@ extern "C" {
     pub fn gc_controller_handle_product_category(handle: *mut c_void) -> *mut c_char;
     pub fn gc_controller_handle_player_index(handle: *mut c_void) -> i32;
     pub fn gc_controller_handle_set_player_index(handle: *mut c_void, index: i32) -> bool;
-    pub fn gc_controller_handle_set_light(handle: *mut c_void, red: f32, green: f32, blue: f32) -> bool;
+    pub fn gc_controller_handle_set_light(
+        handle: *mut c_void,
+        red: f32,
+        green: f32,
+        blue: f32,
+    ) -> bool;
     pub fn gc_controller_handle_battery_level(handle: *mut c_void) -> f32;
     pub fn gc_controller_handle_is_dualsense(handle: *mut c_void) -> bool;
     pub fn gc_controller_handle_rumble(

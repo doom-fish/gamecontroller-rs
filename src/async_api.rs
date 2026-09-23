@@ -41,8 +41,12 @@ use std::task::{Context, Poll};
 // ── FFI declarations ──────────────────────────────────────────────────────────
 
 type StreamCallback = unsafe extern "C" fn(i32, *const c_void, *mut c_void);
-type SubscribeFn =
-    unsafe extern "C" fn(StreamCallback, *mut c_void, ContextCallback, ContextCallback) -> *mut c_void;
+type SubscribeFn = unsafe extern "C" fn(
+    StreamCallback,
+    *mut c_void,
+    ContextCallback,
+    ContextCallback,
+) -> *mut c_void;
 
 unsafe extern "C" {
     fn gc_stream_controller_connection_subscribe(
@@ -276,7 +280,13 @@ unsafe extern "C" fn controller_connection_cb(kind: i32, payload: *const c_void,
         });
     };
     // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
-    let _ = unsafe { CallbackContext::<AsyncStreamSender<ControllerConnectionEvent>>::with(ctx, "controller_connection_cb", push) };
+    let _ = unsafe {
+        CallbackContext::<AsyncStreamSender<ControllerConnectionEvent>>::with(
+            ctx,
+            "controller_connection_cb",
+            push,
+        )
+    };
 }
 
 impl ControllerConnectionStream {
@@ -384,7 +394,9 @@ unsafe extern "C" fn gamepad_value_cb(kind: i32, payload: *const c_void, ctx: *m
         });
     };
     // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
-    let _ = unsafe { CallbackContext::<AsyncStreamSender<GamepadValueEvent>>::with(ctx, "gamepad_value_cb", push) };
+    let _ = unsafe {
+        CallbackContext::<AsyncStreamSender<GamepadValueEvent>>::with(ctx, "gamepad_value_cb", push)
+    };
 }
 
 impl GamepadValueStream {
@@ -462,7 +474,9 @@ unsafe extern "C" fn keyboard_key_cb(kind: i32, payload: *const c_void, ctx: *mu
         });
     };
     // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
-    let _ = unsafe { CallbackContext::<AsyncStreamSender<KeyboardKeyEvent>>::with(ctx, "keyboard_key_cb", push) };
+    let _ = unsafe {
+        CallbackContext::<AsyncStreamSender<KeyboardKeyEvent>>::with(ctx, "keyboard_key_cb", push)
+    };
 }
 
 impl KeyboardKeyStream {
@@ -557,7 +571,9 @@ unsafe extern "C" fn mouse_input_cb(kind: i32, payload: *const c_void, ctx: *mut
         sender.push(event);
     };
     // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
-    let _ = unsafe { CallbackContext::<AsyncStreamSender<MouseInputEvent>>::with(ctx, "mouse_input_cb", push) };
+    let _ = unsafe {
+        CallbackContext::<AsyncStreamSender<MouseInputEvent>>::with(ctx, "mouse_input_cb", push)
+    };
 }
 
 impl MouseInputStream {
@@ -653,7 +669,8 @@ unsafe extern "C" fn motion_cb(kind: i32, payload: *const c_void, ctx: *mut c_vo
         });
     };
     // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
-    let _ = unsafe { CallbackContext::<AsyncStreamSender<MotionEvent>>::with(ctx, "motion_cb", push) };
+    let _ =
+        unsafe { CallbackContext::<AsyncStreamSender<MotionEvent>>::with(ctx, "motion_cb", push) };
 }
 
 impl MotionStream {
@@ -735,7 +752,13 @@ unsafe extern "C" fn micro_gamepad_value_cb(kind: i32, payload: *const c_void, c
         });
     };
     // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
-    let _ = unsafe { CallbackContext::<AsyncStreamSender<MicroGamepadValueEvent>>::with(ctx, "micro_gamepad_value_cb", push) };
+    let _ = unsafe {
+        CallbackContext::<AsyncStreamSender<MicroGamepadValueEvent>>::with(
+            ctx,
+            "micro_gamepad_value_cb",
+            push,
+        )
+    };
 }
 
 impl MicroGamepadValueStream {

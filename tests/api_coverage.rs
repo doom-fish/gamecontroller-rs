@@ -105,7 +105,10 @@ fn aliases() -> BTreeMap<&'static str, Vec<&'static str>> {
         ("initWithRed", vec!["GCColor(red:"]),
         ("objectForKeyedSubscript", vec!["profile[alias]", "[alias]"]),
         ("snapshot", vec!["isSnapshot"]),
-        ("setModeSlopeFeedbackWithStartPosition", vec!["setModeSlopeFeedback("]),
+        (
+            "setModeSlopeFeedbackWithStartPosition",
+            vec!["setModeSlopeFeedback("],
+        ),
         (
             "setModeFeedbackWithResistiveStrengths",
             vec!["setModeFeedback"],

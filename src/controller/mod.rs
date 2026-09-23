@@ -395,18 +395,26 @@ impl Drop for NotificationWatcher {
 unsafe extern "C" fn connection_trampoline(user_info: *mut core::ffi::c_void, value: bool) {
     // SAFETY: `user_info` is the watcher's `CallbackContext`; the Swift registration holds a reference to it until the registration is deallocated.
     let _ = unsafe {
-        CallbackContext::<ConnectionCallbackFn>::with(user_info, "connection_trampoline", |callback| {
-            callback(value);
-        })
+        CallbackContext::<ConnectionCallbackFn>::with(
+            user_info,
+            "connection_trampoline",
+            |callback| {
+                callback(value);
+            },
+        )
     };
 }
 
 unsafe extern "C" fn notification_trampoline(user_info: *mut core::ffi::c_void) {
     // SAFETY: `user_info` is the watcher's `CallbackContext`; the Swift registration holds a reference to it until the registration is deallocated.
     let _ = unsafe {
-        CallbackContext::<NotificationCallbackFn>::with(user_info, "notification_trampoline", |callback| {
-            callback();
-        })
+        CallbackContext::<NotificationCallbackFn>::with(
+            user_info,
+            "notification_trampoline",
+            |callback| {
+                callback();
+            },
+        )
     };
 }
 
@@ -825,7 +833,8 @@ mod tests {
 
     #[test]
     fn notification_callback_panics_are_contained() {
-        let context = CallbackContext::new(Box::new(|| panic!("watcher panic")) as NotificationCallbackFn);
+        let context =
+            CallbackContext::new(Box::new(|| panic!("watcher panic")) as NotificationCallbackFn);
         unsafe { notification_trampoline(context.as_ptr()) };
         unsafe { notification_trampoline(core::ptr::null_mut()) };
         assert!(context.is_active());

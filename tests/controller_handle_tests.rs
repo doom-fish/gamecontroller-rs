@@ -15,7 +15,9 @@ fn controller_handles_follow_the_connected_controllers() {
             assert!((0.0..=1.0).contains(&level));
         }
         if !handle.is_dualsense() {
-            assert!(!handle.set_dualsense_trigger(DualSenseTrigger::Left, DualSenseTriggerEffect::Off));
+            assert!(
+                !handle.set_dualsense_trigger(DualSenseTrigger::Left, DualSenseTriggerEffect::Off)
+            );
         }
         assert!(!handle.set_player_index(4));
         assert!(!handle.set_player_index(-2));
@@ -38,5 +40,10 @@ fn first_controller_helpers_report_failure_without_controllers() {
     assert!(!rumble_first_controller(0.0, 0.0, 0.1));
     assert!(!dualsense_is_connected());
     assert!(!dualsense_trigger_off(DualSenseTrigger::Left));
-    assert!(!dualsense_trigger_weapon(DualSenseTrigger::Right, 0.2, 0.6, 1.0));
+    assert!(!dualsense_trigger_weapon(
+        DualSenseTrigger::Right,
+        0.2,
+        0.6,
+        1.0
+    ));
 }

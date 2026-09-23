@@ -70,7 +70,13 @@ impl DualSenseTriggerEffect {
                 end_position,
                 start_strength,
                 end_strength,
-            } => Some((4, start_position, end_position, start_strength, end_strength)),
+            } => Some((
+                4,
+                start_position,
+                end_position,
+                start_strength,
+                end_strength,
+            )),
             Self::FeedbackResistiveStrengths(_) | Self::VibrationAmplitudes { .. } => None,
         }
     }
