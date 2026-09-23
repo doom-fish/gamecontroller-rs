@@ -2,10 +2,11 @@
 
 mod constants;
 mod details;
+mod handle;
 
 use core::ffi::c_void;
 use core::ptr;
-use std::{ffi::CString, sync::Mutex};
+use std::sync::Mutex;
 
 use doom_fish_utils::callback_context::CallbackContext;
 use doom_fish_utils::panic_safe::catch_user_panic;
@@ -17,6 +18,7 @@ use crate::ffi;
 pub use constants::*;
 /// Re-exports the `GameController` framework surface for this item.
 pub use details::*;
+pub use handle::{ControllerHandle, DualSenseTriggerEffect};
 
 /// A point-in-time snapshot of one connected `GCController`.
 #[derive(Debug, Clone, PartialEq)]
@@ -596,8 +598,8 @@ pub fn set_should_monitor_background_events(enabled: bool) {
 /// Returns `false` if no controller is connected or it has no light.
 #[must_use]
 pub fn set_first_controller_light(red: f32, green: f32, blue: f32) -> bool {
-    // SAFETY: the bridge only reads the numeric light values; there are no extra preconditions.
-    unsafe { ffi::gc_first_controller_set_light(red, green, blue) }
+    ControllerHandle::first()
+        .is_some_and(|controller| controller.set_light(Color { red, green, blue }))
 }
 
 /// Set the light bar / status LED color on the first connected controller using
@@ -607,15 +609,15 @@ pub fn set_first_controller_light_color(color: Color) -> bool {
     set_first_controller_light(color.red, color.green, color.blue)
 }
 
-/// Assign the player index (1..=4) on the first connected controller.
+/// Assign the player index on the first connected controller: the raw
+/// `GCControllerPlayerIndex` value, `-1` to unset or `0..=3` for players 1–4.
 ///
 /// This typically lights up the corresponding LED on consoles or sets
 /// the player slot on Xbox / `DualSense`. Returns `false` if no
 /// controller or the index is out of range.
 #[must_use]
 pub fn set_first_controller_player_index(index: i32) -> bool {
-    // SAFETY: the bridge only reads the integer player index; there are no extra preconditions.
-    unsafe { ffi::gc_first_controller_set_player_index(index) }
+    ControllerHandle::first().is_some_and(|controller| controller.set_player_index(index))
 }
 
 /// Read the battery level (0.0..=1.0) of the first connected
@@ -623,8 +625,9 @@ pub fn set_first_controller_player_index(index: i32) -> bool {
 /// (wired) or none is connected.
 #[must_use]
 pub fn first_controller_battery_level() -> f32 {
-    // SAFETY: this is a read-only FFI query with no preconditions.
-    unsafe { ffi::gc_first_controller_battery_level() }
+    ControllerHandle::first()
+        .and_then(|controller| controller.battery_level())
+        .unwrap_or(-1.0)
 }
 
 /// Play a simple continuous haptic on the first controller for
@@ -634,8 +637,9 @@ pub fn first_controller_battery_level() -> f32 {
 /// Haptics failed to start.
 #[must_use]
 pub fn rumble_first_controller(intensity: f32, sharpness: f32, duration: f64) -> bool {
-    // SAFETY: the bridge only reads the numeric haptics parameters; there are no extra preconditions.
-    unsafe { ffi::gc_first_controller_rumble(intensity, sharpness, duration) }
+    ControllerHandle::first().is_some_and(|controller| {
+        controller.rumble(haptics_localities::DEFAULT, intensity, sharpness, duration)
+    })
 }
 
 /// Play a continuous haptic on the first controller using a specific haptics locality.
@@ -646,18 +650,8 @@ pub fn rumble_first_controller_with_locality(
     sharpness: f32,
     duration: f64,
 ) -> bool {
-    let Ok(locality) = CString::new(locality.as_str()) else {
-        return false;
-    };
-    // SAFETY: `locality` is a live NUL-terminated CString for this call and the remaining arguments are plain numeric values.
-    unsafe {
-        ffi::gc_first_controller_rumble_with_locality(
-            locality.as_ptr(),
-            intensity,
-            sharpness,
-            duration,
-        )
-    }
+    ControllerHandle::first()
+        .is_some_and(|controller| controller.rumble(locality, intensity, sharpness, duration))
 }
 
 /// Which `DualSense` trigger to address.
@@ -672,16 +666,21 @@ pub enum DualSenseTrigger {
 /// True if a `DualSense` controller is currently connected.
 #[must_use]
 pub fn dualsense_is_connected() -> bool {
-    // SAFETY: this is a read-only FFI query with no preconditions.
-    unsafe { ffi::gc_dualsense_is_connected() }
+    ControllerHandle::all()
+        .iter()
+        .any(ControllerHandle::is_dualsense)
+}
+
+fn set_first_dualsense_trigger(which: DualSenseTrigger, effect: DualSenseTriggerEffect) -> bool {
+    ControllerHandle::first_dualsense()
+        .is_some_and(|controller| controller.set_dualsense_trigger(which, effect))
 }
 
 /// Disable adaptive resistance/vibration on the requested `DualSense`
 /// trigger. Wraps `setModeOff`.
 #[must_use]
 pub fn dualsense_trigger_off(which: DualSenseTrigger) -> bool {
-    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
-    unsafe { ffi::gc_dualsense_set_trigger_mode(which as i32, 0, 0.0, 0.0, 0.0, 0.0) }
+    set_first_dualsense_trigger(which, DualSenseTriggerEffect::Off)
 }
 
 /// Apply a resistive "feedback" mode on a `DualSense` trigger.
@@ -693,10 +692,13 @@ pub fn dualsense_trigger_feedback(
     start_position: f32,
     strength: f32,
 ) -> bool {
-    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
-    unsafe {
-        ffi::gc_dualsense_set_trigger_mode(which as i32, 1, start_position, 0.0, strength, 0.0)
-    }
+    set_first_dualsense_trigger(
+        which,
+        DualSenseTriggerEffect::Feedback {
+            start_position,
+            strength,
+        },
+    )
 }
 
 /// Apply a "weapon" mode (resist, then snap) on a `DualSense` trigger.
@@ -708,17 +710,14 @@ pub fn dualsense_trigger_weapon(
     end_position: f32,
     strength: f32,
 ) -> bool {
-    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
-    unsafe {
-        ffi::gc_dualsense_set_trigger_mode(
-            which as i32,
-            2,
+    set_first_dualsense_trigger(
+        which,
+        DualSenseTriggerEffect::Weapon {
             start_position,
             end_position,
             strength,
-            0.0,
-        )
-    }
+        },
+    )
 }
 
 /// Apply a vibration mode on a `DualSense` trigger. `amplitude` and
@@ -730,17 +729,14 @@ pub fn dualsense_trigger_vibration(
     amplitude: f32,
     frequency: f32,
 ) -> bool {
-    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
-    unsafe {
-        ffi::gc_dualsense_set_trigger_mode(
-            which as i32,
-            3,
+    set_first_dualsense_trigger(
+        which,
+        DualSenseTriggerEffect::Vibration {
             start_position,
-            0.0,
             amplitude,
             frequency,
-        )
-    }
+        },
+    )
 }
 
 /// Apply slope feedback on a `DualSense` trigger, varying the force between two
@@ -753,17 +749,15 @@ pub fn dualsense_trigger_slope_feedback(
     start_strength: f32,
     end_strength: f32,
 ) -> bool {
-    // SAFETY: the bridge only reads the enum discriminant and numeric trigger mode values; there are no extra preconditions.
-    unsafe {
-        ffi::gc_dualsense_set_trigger_mode(
-            which as i32,
-            4,
+    set_first_dualsense_trigger(
+        which,
+        DualSenseTriggerEffect::SlopeFeedback {
             start_position,
             end_position,
             start_strength,
             end_strength,
-        )
-    }
+        },
+    )
 }
 
 /// Apply per-position resistive strengths to a `DualSense` trigger.
@@ -772,14 +766,10 @@ pub fn dualsense_trigger_feedback_resistive_strengths(
     which: DualSenseTrigger,
     strengths: GCDualSenseAdaptiveTriggerPositionalResistiveStrengths,
 ) -> bool {
-    // SAFETY: `strengths.values.as_ptr()` is valid for `len` reads for the duration of this call because the array lives on the stack.
-    unsafe {
-        ffi::gc_dualsense_set_trigger_feedback_resistive_strengths(
-            which as i32,
-            strengths.values.as_ptr(),
-            strengths.values.len(),
-        )
-    }
+    set_first_dualsense_trigger(
+        which,
+        DualSenseTriggerEffect::FeedbackResistiveStrengths(strengths),
+    )
 }
 
 /// Apply per-position vibration amplitudes to a `DualSense` trigger.
@@ -789,15 +779,13 @@ pub fn dualsense_trigger_vibration_amplitudes(
     amplitudes: GCDualSenseAdaptiveTriggerPositionalAmplitudes,
     frequency: f32,
 ) -> bool {
-    // SAFETY: `amplitudes.values.as_ptr()` is valid for `len` reads for the duration of this call because the array lives on the stack.
-    unsafe {
-        ffi::gc_dualsense_set_trigger_vibration_amplitudes(
-            which as i32,
-            amplitudes.values.as_ptr(),
-            amplitudes.values.len(),
+    set_first_dualsense_trigger(
+        which,
+        DualSenseTriggerEffect::VibrationAmplitudes {
+            amplitudes,
             frequency,
-        )
-    }
+        },
+    )
 }
 
 #[cfg(test)]

@@ -2,27 +2,87 @@ import AppKit
 import Foundation
 import GameController
 
-@_cdecl("gc_first_controller_set_light")
-public func gc_first_controller_set_light(_ red: Float, _ green: Float, _ blue: Float) -> Bool {
-    guard let controller = GCController.controllers().first, let light = controller.light else { return false }
-    light.color = GCColor(red: red, green: green, blue: blue)
-    return true
+@_cdecl("gc_controller_handles_copy")
+public func gc_controller_handles_copy(
+    _ outHandles: UnsafeMutablePointer<UnsafeMutableRawPointer?>?,
+    _ capacity: Int
+) -> Int {
+    let controllers = GCController.controllers()
+    if let outHandles {
+        for (index, controller) in controllers.prefix(max(0, capacity)).enumerated() {
+            outHandles[index] = Unmanaged.passRetained(controller).toOpaque()
+        }
+    }
+    return controllers.count
 }
 
-@_cdecl("gc_first_controller_set_player_index")
-public func gc_first_controller_set_player_index(_ index: Int32) -> Bool {
-    guard let controller = GCController.controllers().first else { return false }
-    guard let playerIndex = GCControllerPlayerIndex(rawValue: Int(index)) else { return false }
+@_cdecl("gc_controller_current_handle")
+public func gc_controller_current_handle() -> UnsafeMutableRawPointer? {
+    guard let current = GCController.current else { return nil }
+    return Unmanaged.passRetained(current).toOpaque()
+}
+
+@_cdecl("gc_controller_handle_retain")
+public func gc_controller_handle_retain(_ handle: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+    guard let controller = controllerFromHandle(handle) else { return nil }
+    return Unmanaged.passRetained(controller).toOpaque()
+}
+
+@_cdecl("gc_controller_handle_release")
+public func gc_controller_handle_release(_ handle: UnsafeMutableRawPointer?) {
+    guard let handle else { return }
+    Unmanaged<GCController>.fromOpaque(handle).release()
+}
+
+@_cdecl("gc_controller_handle_vendor_name")
+public func gc_controller_handle_vendor_name(_ handle: UnsafeMutableRawPointer?) -> UnsafeMutablePointer<CChar>? {
+    ffiString(controllerFromHandle(handle)?.vendorName)
+}
+
+@_cdecl("gc_controller_handle_product_category")
+public func gc_controller_handle_product_category(_ handle: UnsafeMutableRawPointer?) -> UnsafeMutablePointer<CChar>? {
+    ffiString(controllerFromHandle(handle)?.productCategory)
+}
+
+@_cdecl("gc_controller_handle_player_index")
+public func gc_controller_handle_player_index(_ handle: UnsafeMutableRawPointer?) -> Int32 {
+    guard let controller = controllerFromHandle(handle) else { return -1 }
+    return Int32(clamping: controller.playerIndex.rawValue)
+}
+
+@_cdecl("gc_controller_handle_set_player_index")
+public func gc_controller_handle_set_player_index(_ handle: UnsafeMutableRawPointer?, _ index: Int32) -> Bool {
+    guard let controller = controllerFromHandle(handle),
+          (-1...3).contains(index),
+          let playerIndex = GCControllerPlayerIndex(rawValue: Int(index))
+    else {
+        return false
+    }
     controller.playerIndex = playerIndex
     return true
 }
 
-@_cdecl("gc_first_controller_battery_level")
-public func gc_first_controller_battery_level() -> Float {
-    guard let controller = GCController.controllers().first, let battery = controller.battery else {
-        return -1
-    }
+@_cdecl("gc_controller_handle_set_light")
+public func gc_controller_handle_set_light(
+    _ handle: UnsafeMutableRawPointer?,
+    _ red: Float,
+    _ green: Float,
+    _ blue: Float
+) -> Bool {
+    guard let light = controllerFromHandle(handle)?.light else { return false }
+    light.color = GCColor(red: red, green: green, blue: blue)
+    return true
+}
+
+@_cdecl("gc_controller_handle_battery_level")
+public func gc_controller_handle_battery_level(_ handle: UnsafeMutableRawPointer?) -> Float {
+    guard let battery = controllerFromHandle(handle)?.battery else { return -1 }
     return battery.batteryLevel
+}
+
+@_cdecl("gc_controller_handle_is_dualsense")
+public func gc_controller_handle_is_dualsense(_ handle: UnsafeMutableRawPointer?) -> Bool {
+    controllerFromHandle(handle)?.extendedGamepad is GCDualSenseGamepad
 }
 
 #if canImport(CoreHaptics)
@@ -111,33 +171,15 @@ private func playRumble(
     }
 }
 
-@_cdecl("gc_first_controller_rumble")
-public func gc_first_controller_rumble(
-    _ intensity: Float,
-    _ sharpness: Float,
-    _ duration: Double
-) -> Bool {
-    guard #available(macOS 11.0, *), let controller = GCController.controllers().first else {
-        return false
-    }
-    return playRumble(
-        controller: controller,
-        locality: .default,
-        intensity: intensity,
-        sharpness: sharpness,
-        duration: duration
-    )
-}
-
-@_cdecl("gc_first_controller_rumble_with_locality")
-public func gc_first_controller_rumble_with_locality(
+@_cdecl("gc_controller_handle_rumble")
+public func gc_controller_handle_rumble(
+    _ handle: UnsafeMutableRawPointer?,
     _ locality: UnsafePointer<CChar>?,
     _ intensity: Float,
     _ sharpness: Float,
     _ duration: Double
 ) -> Bool {
-    guard #available(macOS 11.0, *),
-          let controller = GCController.controllers().first,
+    guard let controller = controllerFromHandle(handle),
           let locality,
           let typedLocality = hapticsLocality(from: String(cString: locality))
     else {
@@ -152,17 +194,9 @@ public func gc_first_controller_rumble_with_locality(
     )
 }
 #else
-@_cdecl("gc_first_controller_rumble")
-public func gc_first_controller_rumble(
-    _ intensity: Float,
-    _ sharpness: Float,
-    _ duration: Double
-) -> Bool {
-    false
-}
-
-@_cdecl("gc_first_controller_rumble_with_locality")
-public func gc_first_controller_rumble_with_locality(
+@_cdecl("gc_controller_handle_rumble")
+public func gc_controller_handle_rumble(
+    _ handle: UnsafeMutableRawPointer?,
     _ locality: UnsafePointer<CChar>?,
     _ intensity: Float,
     _ sharpness: Float,

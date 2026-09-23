@@ -230,16 +230,19 @@ extern "C" {
 /// Calls the `GameController` framework counterpart for `gc_set_should_monitor_background_events`.
     pub fn gc_set_should_monitor_background_events(enabled: bool);
 
-/// Calls the `GameController` framework counterpart for `gc_first_controller_set_light`.
-    pub fn gc_first_controller_set_light(red: f32, green: f32, blue: f32) -> bool;
-/// Calls the `GameController` framework counterpart for `gc_first_controller_set_player_index`.
-    pub fn gc_first_controller_set_player_index(index: i32) -> bool;
-/// Calls the `GameController` framework counterpart for `gc_first_controller_battery_level`.
-    pub fn gc_first_controller_battery_level() -> f32;
-/// Calls the `GameController` framework counterpart for `gc_first_controller_rumble`.
-    pub fn gc_first_controller_rumble(intensity: f32, sharpness: f32, duration: f64) -> bool;
-/// Calls the `GameController` framework counterpart for `gc_first_controller_rumble_with_locality`.
-    pub fn gc_first_controller_rumble_with_locality(
+    pub fn gc_controller_handles_copy(out_handles: *mut *mut c_void, capacity: usize) -> usize;
+    pub fn gc_controller_current_handle() -> *mut c_void;
+    pub fn gc_controller_handle_retain(handle: *mut c_void) -> *mut c_void;
+    pub fn gc_controller_handle_release(handle: *mut c_void);
+    pub fn gc_controller_handle_vendor_name(handle: *mut c_void) -> *mut c_char;
+    pub fn gc_controller_handle_product_category(handle: *mut c_void) -> *mut c_char;
+    pub fn gc_controller_handle_player_index(handle: *mut c_void) -> i32;
+    pub fn gc_controller_handle_set_player_index(handle: *mut c_void, index: i32) -> bool;
+    pub fn gc_controller_handle_set_light(handle: *mut c_void, red: f32, green: f32, blue: f32) -> bool;
+    pub fn gc_controller_handle_battery_level(handle: *mut c_void) -> f32;
+    pub fn gc_controller_handle_is_dualsense(handle: *mut c_void) -> bool;
+    pub fn gc_controller_handle_rumble(
+        handle: *mut c_void,
         locality: *const c_char,
         intensity: f32,
         sharpness: f32,
@@ -272,10 +275,8 @@ extern "C" {
 /// Calls the `GameController` framework counterpart for `gc_all_controllers_extras`.
     pub fn gc_all_controllers_extras(out_buf: *mut ExtraInfoRaw, max: usize) -> usize;
 
-/// Calls the `GameController` framework counterpart for `gc_dualsense_is_connected`.
-    pub fn gc_dualsense_is_connected() -> bool;
-/// Calls the `GameController` framework counterpart for `gc_dualsense_set_trigger_mode`.
-    pub fn gc_dualsense_set_trigger_mode(
+    pub fn gc_controller_handle_dualsense_set_trigger_mode(
+        handle: *mut c_void,
         which: i32,
         mode: i32,
         start_position: f32,
@@ -283,14 +284,14 @@ extern "C" {
         strength: f32,
         frequency: f32,
     ) -> bool;
-/// Calls the `GameController` framework counterpart for `gc_dualsense_set_trigger_feedback_resistive_strengths`.
-    pub fn gc_dualsense_set_trigger_feedback_resistive_strengths(
+    pub fn gc_controller_handle_dualsense_set_trigger_feedback_resistive_strengths(
+        handle: *mut c_void,
         which: i32,
         values: *const f32,
         len: usize,
     ) -> bool;
-/// Calls the `GameController` framework counterpart for `gc_dualsense_set_trigger_vibration_amplitudes`.
-    pub fn gc_dualsense_set_trigger_vibration_amplitudes(
+    pub fn gc_controller_handle_dualsense_set_trigger_vibration_amplitudes(
+        handle: *mut c_void,
         which: i32,
         values: *const f32,
         len: usize,

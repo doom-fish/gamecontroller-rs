@@ -26,6 +26,11 @@ func clampUnit(_ value: Float) -> Float {
     max(0, min(1, value))
 }
 
+func controllerFromHandle(_ handle: UnsafeMutableRawPointer?) -> GCController? {
+    guard let handle else { return nil }
+    return Unmanaged<GCController>.fromOpaque(handle).takeUnretainedValue()
+}
+
 @frozen
 public struct GCControllerInfoRaw {
     public var vendor_name: UnsafeMutablePointer<CChar>?

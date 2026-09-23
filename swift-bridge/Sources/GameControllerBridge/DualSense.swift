@@ -29,23 +29,13 @@ private func triggerValues(_ values: UnsafePointer<Float>?, len: Int) -> [Float]
     return (0..<len).map { clampUnit(values[$0]) }
 }
 
-private func firstDualSense() -> GCDualSenseGamepad? {
-    if #unavailable(macOS 11.3) { return nil }
-    for controller in GCController.controllers() {
-        if let dualSense = controller.extendedGamepad as? GCDualSenseGamepad {
-            return dualSense
-        }
-    }
-    return nil
+private func dualSenseGamepad(_ handle: UnsafeMutableRawPointer?) -> GCDualSenseGamepad? {
+    controllerFromHandle(handle)?.extendedGamepad as? GCDualSenseGamepad
 }
 
-@_cdecl("gc_dualsense_is_connected")
-public func gc_dualsense_is_connected() -> Bool {
-    firstDualSense() != nil
-}
-
-@_cdecl("gc_dualsense_set_trigger_mode")
-public func gc_dualsense_set_trigger_mode(
+@_cdecl("gc_controller_handle_dualsense_set_trigger_mode")
+public func gc_controller_handle_dualsense_set_trigger_mode(
+    _ handle: UnsafeMutableRawPointer?,
     _ which: Int32,
     _ mode: Int32,
     _ startPosition: Float,
@@ -53,7 +43,7 @@ public func gc_dualsense_set_trigger_mode(
     _ strength: Float,
     _ frequency: Float
 ) -> Bool {
-    guard let dualSense = firstDualSense() else { return false }
+    guard let dualSense = dualSenseGamepad(handle) else { return false }
 
     let trigger = which == 0 ? dualSense.leftTrigger : dualSense.rightTrigger
     let clampedStart = clampUnit(startPosition)
@@ -94,14 +84,15 @@ public func gc_dualsense_set_trigger_mode(
     return true
 }
 
-@_cdecl("gc_dualsense_set_trigger_feedback_resistive_strengths")
-public func gc_dualsense_set_trigger_feedback_resistive_strengths(
+@_cdecl("gc_controller_handle_dualsense_set_trigger_feedback_resistive_strengths")
+public func gc_controller_handle_dualsense_set_trigger_feedback_resistive_strengths(
+    _ handle: UnsafeMutableRawPointer?,
     _ which: Int32,
     _ values: UnsafePointer<Float>?,
     _ len: Int
 ) -> Bool {
     guard #available(macOS 12.3, *),
-          let dualSense = firstDualSense(),
+          let dualSense = dualSenseGamepad(handle),
           let values = triggerValues(values, len: len)
     else {
         return false
@@ -112,15 +103,16 @@ public func gc_dualsense_set_trigger_feedback_resistive_strengths(
     return true
 }
 
-@_cdecl("gc_dualsense_set_trigger_vibration_amplitudes")
-public func gc_dualsense_set_trigger_vibration_amplitudes(
+@_cdecl("gc_controller_handle_dualsense_set_trigger_vibration_amplitudes")
+public func gc_controller_handle_dualsense_set_trigger_vibration_amplitudes(
+    _ handle: UnsafeMutableRawPointer?,
     _ which: Int32,
     _ values: UnsafePointer<Float>?,
     _ len: Int,
     _ frequency: Float
 ) -> Bool {
     guard #available(macOS 12.3, *),
-          let dualSense = firstDualSense(),
+          let dualSense = dualSenseGamepad(handle),
           let values = triggerValues(values, len: len)
     else {
         return false
