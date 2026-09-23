@@ -6,11 +6,13 @@ Filtered out 7 unavailable symbols (the visionOS-only `GCStylus` family plus spa
 v0.8.8 closes the remaining notifications, generic device/element metadata, haptics locality, product-category, and raw geometry/adaptive-trigger gaps, and now also adds an async wireless-discovery future.
 Public macOS symbol coverage is now complete for the non-exempt surface.
 
-SDK_PUBLIC_SYMBOLS: 444
-VERIFIED: 426
+SDK_PUBLIC_SYMBOLS: 446
+VERIFIED: 428
 GAPS: 0
 EXEMPT: 18
 COVERAGE_PCT: 100.00%
+
+These figures count top-level symbols only. A symbol is VERIFIED when the Rust API has a counterpart for it, often a read-only snapshot, not when every method is wrapped; see `COVERAGE.md` for the known method-level gaps. Earlier revisions claimed 100% while omitting the macOS 26.4 `GCInputLeftSideButton` and `GCInputRightSideButton` constants; they are wrapped since v0.9.0 and included in the counts above.
 
 ## 🟢 VERIFIED
 | Symbol | Kind | Header | Wrapped by |
@@ -95,6 +97,7 @@ COVERAGE_PCT: 100.00%
 | GCInputLeftBumper | constant | GCInputNames.h | input_names::LEFT_BUMPER |
 | GCInputLeftPaddle | constant | GCInputNames.h | input_names::LEFT_PADDLE |
 | GCInputLeftShoulder | constant | GCInputNames.h | input_names::LEFT_SHOULDER |
+| GCInputLeftSideButton | constant | GCInputNames.h | input_names::LEFT_SIDE_BUTTON; input_names::side_buttons_available() (macOS 26.4+) |
 | GCInputLeftThumbstick | constant | GCInputNames.h | input_names::LEFT_THUMBSTICK |
 | GCInputLeftThumbstickButton | constant | GCInputNames.h | input_names::LEFT_THUMBSTICK_BUTTON |
 | GCInputLeftTrigger | constant | GCInputNames.h | input_names::LEFT_TRIGGER |
@@ -108,6 +111,7 @@ COVERAGE_PCT: 100.00%
 | GCInputRightBumper | constant | GCInputNames.h | input_names::RIGHT_BUMPER |
 | GCInputRightPaddle | constant | GCInputNames.h | input_names::RIGHT_PADDLE |
 | GCInputRightShoulder | constant | GCInputNames.h | input_names::RIGHT_SHOULDER |
+| GCInputRightSideButton | constant | GCInputNames.h | input_names::RIGHT_SIDE_BUTTON; input_names::side_buttons_available() (macOS 26.4+) |
 | GCInputRightThumbstick | constant | GCInputNames.h | input_names::RIGHT_THUMBSTICK |
 | GCInputRightThumbstickButton | constant | GCInputNames.h | input_names::RIGHT_THUMBSTICK_BUTTON |
 | GCInputRightTrigger | constant | GCInputNames.h | input_names::RIGHT_TRIGGER |

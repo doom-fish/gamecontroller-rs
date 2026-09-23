@@ -6,6 +6,8 @@ GAPS: 0
 EXEMPT: 18
 COVERAGE_PCT: 100.00%
 
+These figures count top-level symbols only, and the 26.2 SDK predates the macOS 26.4 side-button constants; `COVERAGE_AUDIT.md` covers the 26.5 SDK.
+
 Verification of gamecontroller-rs against MacOSX26.2.sdk GameController framework. The v2 audit re-confirms that all 426 previously-verified public macOS symbols remain present in v26.2 and are still wrapped by the crate's safe Rust API. No breaking symbol removals detected; framework compatibility is maintained at 100% for non-exempt surface.
 
 ## 🟢 VERIFIED

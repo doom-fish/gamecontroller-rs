@@ -2,7 +2,13 @@
 
 Safe Rust bindings for Apple's [GameController](https://developer.apple.com/documentation/gamecontroller) framework on macOS.
 
-> **Status:** `0.8.8` keeps the full audited public-symbol coverage and now also offers an executor-agnostic wireless-discovery future on top of the existing generic `GCDevice` / `GCControllerElement` snapshots, typed haptics/product-category constants, locality-aware rumble, richer notification watchers, and current-controller physical-input element metadata.
+> **Status:** `0.9.0` fixes use-after-free and data-race bugs in the watchers and async streams, lets several streams share one controller handler, adds per-controller `ControllerHandle`s for light, player index, rumble and `DualSense` triggers, and adds the macOS 26.4 side-button input names. The coverage audit counts top-level symbols, not methods (see [`COVERAGE.md`](COVERAGE.md)).
+
+## Requirements
+
+- macOS 13 or newer (the Swift bridge's deployment target).
+- `input_names::LEFT_SIDE_BUTTON` / `RIGHT_SIDE_BUTTON` are reported by macOS 26.4 and newer; `input_names::side_buttons_available()` checks the running system.
+- Connection notifications, discovery completion and controller input handlers run on the main queue, so the app needs a running main run loop to receive them.
 
 ## Quick start
 
@@ -57,16 +63,17 @@ fn main() -> Result<(), GameControllerError> {
 - `connected_racing_wheels()` for macOS-only `GCRacingWheel` metadata + captured input when already acquired.
 - `event_view_controller_snapshot()` for `GCEventViewController` defaults.
 - `first_controller_battery()` / `first_controller_light()` / `first_controller_haptics()` for typed device-side snapshots.
-- `set_first_controller_light_color()` plus `set_first_controller_light()` for `GCColor` / `GCDeviceLight` mutation.
+- `ControllerHandle::all()` / `current()` / `first()` / `first_dualsense()` return handles to specific controllers with `set_light()`, `set_player_index()`, `battery_level()`, `rumble()` and `set_dualsense_trigger()` (a typed `DualSenseTriggerEffect`).
+- `set_first_controller_light_color()` plus `set_first_controller_light()` for `GCColor` / `GCDeviceLight` mutation on the first controller.
 - `rumble_first_controller_with_locality()` plus `DeviceHapticsDetails::supported_locality_constants()` for typed haptics locality coverage.
 - `watch_connections()`, `watch_current_controller()`, `watch_keyboard_connections()`, `watch_mouse_connections()`, `watch_mouse_current()`, `watch_racing_wheel_connections()`, and `watch_controller_customizations()` for notification coverage.
 - `should_monitor_background_events()` / `set_should_monitor_background_events()`.
 - `start_wireless_controller_discovery()`, `stop_wireless_controller_discovery()`, and `async_api::start_wireless_controller_discovery()`.
-- `dualsense_trigger_*` helpers plus `dualsense_trigger_feedback_resistive_strengths()` / `dualsense_trigger_vibration_amplitudes()` for raw adaptive-trigger array helpers.
+- `dualsense_trigger_*` helpers (Apple's feedback, weapon, vibration and slope modes on the first `DualSense`) plus `dualsense_trigger_feedback_resistive_strengths()` / `dualsense_trigger_vibration_amplitudes()` for raw adaptive-trigger array helpers.
 
 ## Async API
 
-Enable the `async` feature to await wireless discovery without wiring a callback:
+Enable the `async` feature to await wireless discovery without wiring a callback, or to receive connection, gamepad, keyboard, mouse, motion and micro-gamepad events as bounded async streams:
 
 ```toml
 [dependencies]
@@ -93,7 +100,8 @@ async fn example() -> Result<(), gamecontroller::GameControllerError> {
 
 - Wireless-discovery completion callbacks and connection notifications fire on the main run loop.
 - `gamepad` support is included for completeness even though Apple prefers `extendedGamepad`.
-- The crate remains snapshot-first. It exposes `GCDevicePhysicalInput` queue snapshots/diffs, but callback-heavy setter APIs (`valueChangedHandler`, `keyChangedHandler`, `mouseMovedHandler`, handler-queue mutation) and exclusive `GCRacingWheel` acquisition are intentionally left out of the safe Rust surface.
+- The crate is snapshot-first. The async streams are the only code that installs `valueChangedHandler`, `keyChangedHandler` and the mouse handlers. They share one handler per device: several streams can subscribe at once, a handler the app installed earlier keeps being called, and it is restored when the last stream is dropped. Handler-queue mutation and exclusive `GCRacingWheel` acquisition are not wrapped.
+- Dropping a watcher or stream stops its callbacks before `drop` returns; the closure or sender is freed once Swift has released it.
 - `GCRemote` is not present in the macOS SDK headers inspected for this release and is documented as skipped in [`COVERAGE.md`](COVERAGE.md).
 
 ## License

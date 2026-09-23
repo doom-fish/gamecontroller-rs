@@ -1,6 +1,8 @@
-# GameController v0.8.8 coverage sweep
+# GameController v0.9.0 coverage sweep
 
 This sweep audited the requested GameController families against the macOS 26.5 SDK headers and the Rust/Swift surface shipped by this crate.
+
+The ✅ marks and the audit percentages count top-level symbols (classes, protocols, constants, enums) that have a Rust counterpart, mostly read-only JSON snapshots. They do not mean every method or setter is wrapped; the 🟡 rows and the list at the end name the known gaps. The raw `ffi` module is not counted as safe coverage.
 
 | Family | Status | Notes |
 | --- | --- | --- |
@@ -11,19 +13,27 @@ This sweep audited the requested GameController families against the macOS 26.5 
 | `GCExtendedGamepad` | ✅ | Detailed snapshots continue to cover the full extended profile surface. |
 | `GCMicroGamepad` | ✅ | Detailed snapshots continue to cover the micro profile surface. |
 | `GCDirectionalGamepad` | ✅ | `ControllerDetails::directional_gamepad` now reports the directional-gamepad profile when the connected micro gamepad is a `GCDirectionalGamepad`. |
-| `GCHaptics` / `GCDeviceHaptics` | ✅ | `rumble_first_controller()` remains, `rumble_first_controller_with_locality()` adds locality-aware playback, and typed `DeviceHapticsDetails` snapshots now expose supported localities. |
+| `GCHaptics` / `GCDeviceHaptics` | ✅ | `ControllerHandle::rumble()` plays a locality-aware haptic on a specific controller, `rumble_first_controller()` / `rumble_first_controller_with_locality()` do so on the first one, and typed `DeviceHapticsDetails` snapshots expose supported localities. |
 | `GCMotion` | ✅ | Motion snapshots remain available both in `ControllerExtras` and `ControllerDetails`, and `Quaternion::to_euler_angles()` exposes the legacy Euler-angle struct when needed. |
 | `GCPhysicalInputProfile` | ✅ | Rich JSON-backed `PhysicalInputProfileDetails` coverage remains in controller, keyboard, and mouse snapshots, and `current_controller_physical_input_elements()` now exposes generic physical-input/source/extents metadata. |
 | `GCDevice` | ✅ | `connected_devices_snapshot()` exposes generic `GCDevice` vendor/category/handler-queue metadata across controllers, keyboard, mouse, and racing wheels. |
 | `GCRacingWheel` | 🟡 | `connected_racing_wheels()` exposes metadata and captured wheel input when the device is already acquired. Exclusive acquire/relinquish APIs are intentionally left out of safe Rust because they require retained handles / ownership beyond the crate's snapshot-first design. |
-| `GCDualSenseAdaptiveTrigger` | ✅ | Existing trigger helpers remain and detailed snapshots still report adaptive-trigger state. |
+| `GCDualSenseAdaptiveTrigger` | ✅ | `ControllerHandle::set_dualsense_trigger()` and the `dualsense_trigger_*` helpers call Apple's off, feedback, weapon, vibration and slope modes and the positional strength/amplitude modes; detailed snapshots report adaptive-trigger state. |
 | `GCDualShockGamepad` | ✅ | `ControllerDetails::dual_shock` now snapshots DualShock touchpad controls. |
 | `GCXboxGamepad` | ✅ | `ControllerDetails::xbox` now snapshots paddles and Share button state. |
 | `GCEventViewController` | 🟡 | `event_view_controller_snapshot()` covers the default `controllerUserInteractionEnabled` state. Window/root-view-controller integration is intentionally not wrapped in safe Rust because examples/tests must stay headless. |
-| `GCColor` | ✅ | Typed `Color` snapshots are exposed via `DeviceLightDetails`, and `set_first_controller_light_color()` provides a safe Rust setter path. |
+| `GCColor` | ✅ | Typed `Color` snapshots are exposed via `DeviceLightDetails`, and `ControllerHandle::set_light()` / `set_first_controller_light_color()` set a controller's light. |
 | `GCController.input` | ✅ | `ControllerDetails::input` and `current_controller_input_snapshot()` surface the live-input object snapshot. |
 | `GCController.battery` | ✅ | `ControllerDetails::battery`, `first_controller_battery()`, and the legacy scalar helper all expose controller battery data. |
 | `GCControllerLiveInput` | 🟡 | Live-input capture / unmapped / next-state snapshot data is exposed. Callback-heavy queue/handler configuration remains intentionally out of scope for the current safe Rust layer. |
 | `GCControllerInputState` | ✅ | `ControllerInputStateDetails` models captured state metadata plus button/axis/switch/dpad snapshots. |
 | `GCDeviceLight` | ✅ | Typed light snapshots (`DeviceLightDetails`) and the existing/light-color setter APIs are exposed. |
+| `GCInputNames` (26.4) | ✅ | `input_names::LEFT_SIDE_BUTTON` / `RIGHT_SIDE_BUTTON` mirror `GCInputLeftSideButton` / `GCInputRightSideButton`; `input_names::side_buttons_available()` reports whether the running system defines them. |
 | `GCRemote` | ⏭️ | Skipped: `GCRemote` does not appear in the inspected macOS GameController framework headers, so there is no macOS API surface for this crate to wrap. |
+
+## Known gaps
+
+- `GCController.handlerQueue` cannot be changed; input handlers and notifications are delivered on the main queue.
+- `GCRacingWheel` acquire/relinquish is not wrapped.
+- The macOS 27 `GCControllerHomeButtonSettingsManager` is not wrapped; this sweep targets the macOS 26.5 SDK.
+- The stylus, spatial-accessory and device-type APIs are visionOS-only and are not part of the macOS surface.
