@@ -115,8 +115,7 @@ pub struct ExtraInfoRaw {
 //
 // These compile-time assertions pin the exact size/alignment shared with Swift:
 // any change to a field type, field order, or padding fails the build instead of
-// silently corrupting marshalled data at runtime. The crate's MSRV (1.76) predates
-// `core::mem::offset_of!` (stabilised in 1.77), so only `size_of`/`align_of` are
+// silently corrupting marshalled data at runtime. Only `size_of`/`align_of` are
 // asserted here. If you change the layout you MUST mirror it in Core.swift.
 use core::mem::{align_of, size_of};
 

@@ -111,7 +111,7 @@ pub fn connected_controllers() -> Vec<Controller> {
     let mut array: *mut c_void = ptr::null_mut();
     let mut count: usize = 0;
     // SAFETY: `array` and `count` are valid stack locals passed as out-pointers for Swift to fill.
-    let status = unsafe { ffi::gc_connected_controllers(&mut array, &mut count) };
+    let status = unsafe { ffi::gc_connected_controllers(&raw mut array, &raw mut count) };
     if status != 0 || array.is_null() || count == 0 {
         return Vec::new();
     }
@@ -211,7 +211,7 @@ pub struct ControllerExtras {
 pub fn first_controller_extras() -> Option<ControllerExtras> {
     let mut raw = empty_extras_raw();
     // SAFETY: `raw` is a valid stack-allocated out-struct for Swift to initialize.
-    let ok = unsafe { ffi::gc_first_controller_extra(&mut raw) };
+    let ok = unsafe { ffi::gc_first_controller_extra(&raw mut raw) };
     if !ok {
         return None;
     }
@@ -297,7 +297,7 @@ pub fn mouse_button_states() -> Option<MouseButtons> {
     let mut r = false;
     let mut m = false;
     // SAFETY: `l`, `r`, and `m` are valid stack locals passed as out-pointers for Swift to fill.
-    let ok = unsafe { ffi::gc_mouse_button_states(&mut l, &mut r, &mut m) };
+    let ok = unsafe { ffi::gc_mouse_button_states(&raw mut l, &raw mut r, &raw mut m) };
     if !ok {
         return None;
     }
