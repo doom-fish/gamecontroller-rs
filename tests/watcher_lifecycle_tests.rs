@@ -72,6 +72,7 @@ fn watchers_can_be_registered_and_dropped_from_many_threads() {
 }
 
 #[test]
+#[ignore = "starts real wireless controller discovery, which can pair a nearby controller that is in pairing mode"]
 fn wireless_discovery_can_be_started_and_stopped_from_many_threads() {
     let workers = (0..4)
         .map(|index| {

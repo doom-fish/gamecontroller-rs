@@ -37,25 +37,27 @@ fn controller_surface_smoke() -> Result<(), GameControllerError> {
     let _ = first_controller_battery()?;
     let _ = first_controller_light()?;
     let _ = first_controller_haptics()?;
-    let _ = rumble_first_controller_with_locality(
-        haptics_localities::DEFAULT,
-        0.0,
-        0.0,
-        f64::from(HAPTIC_DURATION_INFINITE),
-    );
-    let _ = set_first_controller_light_color(Color {
-        red: 0.0,
-        green: 0.0,
-        blue: 0.0,
-    });
-    let _ = dualsense_trigger_feedback_resistive_strengths(
-        DualSenseTrigger::Left,
-        GCDualSenseAdaptiveTriggerPositionalResistiveStrengths::default(),
-    );
-    let _ = dualsense_trigger_vibration_amplitudes(
-        DualSenseTrigger::Right,
-        GCDualSenseAdaptiveTriggerPositionalAmplitudes::default(),
-        1.0,
-    );
+    if controllers.is_empty() {
+        let _ = rumble_first_controller_with_locality(
+            haptics_localities::DEFAULT,
+            0.0,
+            0.0,
+            f64::from(HAPTIC_DURATION_INFINITE),
+        );
+        let _ = set_first_controller_light_color(Color {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+        });
+        let _ = dualsense_trigger_feedback_resistive_strengths(
+            DualSenseTrigger::Left,
+            GCDualSenseAdaptiveTriggerPositionalResistiveStrengths::default(),
+        );
+        let _ = dualsense_trigger_vibration_amplitudes(
+            DualSenseTrigger::Right,
+            GCDualSenseAdaptiveTriggerPositionalAmplitudes::default(),
+            1.0,
+        );
+    }
     Ok(())
 }
