@@ -4,26 +4,51 @@ import GameController
 public typealias GCNotificationCallback = @convention(c) (UnsafeMutableRawPointer?, Bool) -> Void
 public typealias GCVoidNotificationCallback = @convention(c) (UnsafeMutableRawPointer?) -> Void
 public typealias GCDiscoveryCallback = @convention(c) (UnsafeMutableRawPointer?) -> Void
+public typealias GCContextCallback = @convention(c) (UnsafeMutableRawPointer?) -> Void
 
 private final class BoolNotifyState {
     let callback: GCNotificationCallback
     let userInfo: UnsafeMutableRawPointer?
+    let releaseContext: GCContextCallback
     var observers: [NSObjectProtocol] = []
 
-    init(callback: @escaping GCNotificationCallback, userInfo: UnsafeMutableRawPointer?) {
+    init(
+        callback: @escaping GCNotificationCallback,
+        userInfo: UnsafeMutableRawPointer?,
+        retainContext: GCContextCallback,
+        releaseContext: @escaping GCContextCallback
+    ) {
         self.callback = callback
         self.userInfo = userInfo
+        self.releaseContext = releaseContext
+        retainContext(userInfo)
+    }
+
+    deinit {
+        releaseContext(userInfo)
     }
 }
 
 private final class VoidNotifyState {
     let callback: GCVoidNotificationCallback
     let userInfo: UnsafeMutableRawPointer?
+    let releaseContext: GCContextCallback
     var observers: [NSObjectProtocol] = []
 
-    init(callback: @escaping GCVoidNotificationCallback, userInfo: UnsafeMutableRawPointer?) {
+    init(
+        callback: @escaping GCVoidNotificationCallback,
+        userInfo: UnsafeMutableRawPointer?,
+        retainContext: GCContextCallback,
+        releaseContext: @escaping GCContextCallback
+    ) {
         self.callback = callback
         self.userInfo = userInfo
+        self.releaseContext = releaseContext
+        retainContext(userInfo)
+    }
+
+    deinit {
+        releaseContext(userInfo)
     }
 }
 
@@ -50,21 +75,30 @@ private var discoveryState: DiscoveryState?
 private func registerBoolNotifications(
     _ callback: @escaping GCNotificationCallback,
     _ userInfo: UnsafeMutableRawPointer?,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback,
     _ notifications: [(Notification.Name, Bool)]
 ) -> UnsafeMutableRawPointer? {
     guard !notifications.isEmpty else { return nil }
 
-    let state = BoolNotifyState(callback: callback, userInfo: userInfo)
-    let notificationCenter = NotificationCenter.default
-    for (name, value) in notifications {
-        let observer = notificationCenter.addObserver(
-            forName: name,
-            object: nil,
-            queue: .main
-        ) { _ in
-            state.callback(state.userInfo, value)
+    let state = BoolNotifyState(
+        callback: callback,
+        userInfo: userInfo,
+        retainContext: retainContext,
+        releaseContext: releaseContext
+    )
+    autoreleasepool {
+        let notificationCenter = NotificationCenter.default
+        for (name, value) in notifications {
+            let observer = notificationCenter.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { _ in
+                state.callback(state.userInfo, value)
+            }
+            state.observers.append(observer)
         }
-        state.observers.append(observer)
     }
 
     let token = Unmanaged.passRetained(state).toOpaque()
@@ -77,21 +111,30 @@ private func registerBoolNotifications(
 private func registerVoidNotifications(
     _ callback: @escaping GCVoidNotificationCallback,
     _ userInfo: UnsafeMutableRawPointer?,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback,
     _ names: [Notification.Name]
 ) -> UnsafeMutableRawPointer? {
     guard !names.isEmpty else { return nil }
 
-    let state = VoidNotifyState(callback: callback, userInfo: userInfo)
-    let notificationCenter = NotificationCenter.default
-    for name in names {
-        let observer = notificationCenter.addObserver(
-            forName: name,
-            object: nil,
-            queue: .main
-        ) { _ in
-            state.callback(state.userInfo)
+    let state = VoidNotifyState(
+        callback: callback,
+        userInfo: userInfo,
+        retainContext: retainContext,
+        releaseContext: releaseContext
+    )
+    autoreleasepool {
+        let notificationCenter = NotificationCenter.default
+        for name in names {
+            let observer = notificationCenter.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { _ in
+                state.callback(state.userInfo)
+            }
+            state.observers.append(observer)
         }
-        state.observers.append(observer)
     }
 
     let token = Unmanaged.passRetained(state).toOpaque()
@@ -104,9 +147,11 @@ private func registerVoidNotifications(
 @_cdecl("gc_register_connection_callback")
 public func gc_register_connection_callback(
     _ callback: @escaping GCNotificationCallback,
-    _ userInfo: UnsafeMutableRawPointer?
+    _ userInfo: UnsafeMutableRawPointer?,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer? {
-    registerBoolNotifications(callback, userInfo, [
+    registerBoolNotifications(callback, userInfo, retainContext, releaseContext, [
         (.GCControllerDidConnect, true),
         (.GCControllerDidDisconnect, false),
     ])
@@ -115,10 +160,12 @@ public func gc_register_connection_callback(
 @_cdecl("gc_register_controller_current_callback")
 public func gc_register_controller_current_callback(
     _ callback: @escaping GCNotificationCallback,
-    _ userInfo: UnsafeMutableRawPointer?
+    _ userInfo: UnsafeMutableRawPointer?,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer? {
     guard #available(macOS 11.0, *) else { return nil }
-    return registerBoolNotifications(callback, userInfo, [
+    return registerBoolNotifications(callback, userInfo, retainContext, releaseContext, [
         (.GCControllerDidBecomeCurrent, true),
         (.GCControllerDidStopBeingCurrent, false),
     ])
@@ -127,10 +174,12 @@ public func gc_register_controller_current_callback(
 @_cdecl("gc_register_keyboard_connection_callback")
 public func gc_register_keyboard_connection_callback(
     _ callback: @escaping GCNotificationCallback,
-    _ userInfo: UnsafeMutableRawPointer?
+    _ userInfo: UnsafeMutableRawPointer?,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer? {
     guard #available(macOS 11.0, *) else { return nil }
-    return registerBoolNotifications(callback, userInfo, [
+    return registerBoolNotifications(callback, userInfo, retainContext, releaseContext, [
         (.GCKeyboardDidConnect, true),
         (.GCKeyboardDidDisconnect, false),
     ])
@@ -139,10 +188,12 @@ public func gc_register_keyboard_connection_callback(
 @_cdecl("gc_register_mouse_connection_callback")
 public func gc_register_mouse_connection_callback(
     _ callback: @escaping GCNotificationCallback,
-    _ userInfo: UnsafeMutableRawPointer?
+    _ userInfo: UnsafeMutableRawPointer?,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer? {
     guard #available(macOS 11.0, *) else { return nil }
-    return registerBoolNotifications(callback, userInfo, [
+    return registerBoolNotifications(callback, userInfo, retainContext, releaseContext, [
         (.GCMouseDidConnect, true),
         (.GCMouseDidDisconnect, false),
     ])
@@ -151,10 +202,12 @@ public func gc_register_mouse_connection_callback(
 @_cdecl("gc_register_mouse_current_callback")
 public func gc_register_mouse_current_callback(
     _ callback: @escaping GCNotificationCallback,
-    _ userInfo: UnsafeMutableRawPointer?
+    _ userInfo: UnsafeMutableRawPointer?,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer? {
     guard #available(macOS 11.0, *) else { return nil }
-    return registerBoolNotifications(callback, userInfo, [
+    return registerBoolNotifications(callback, userInfo, retainContext, releaseContext, [
         (.GCMouseDidBecomeCurrent, true),
         (.GCMouseDidStopBeingCurrent, false),
     ])
@@ -163,10 +216,12 @@ public func gc_register_mouse_current_callback(
 @_cdecl("gc_register_racing_wheel_connection_callback")
 public func gc_register_racing_wheel_connection_callback(
     _ callback: @escaping GCNotificationCallback,
-    _ userInfo: UnsafeMutableRawPointer?
+    _ userInfo: UnsafeMutableRawPointer?,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer? {
     guard #available(macOS 13.0, *) else { return nil }
-    return registerBoolNotifications(callback, userInfo, [
+    return registerBoolNotifications(callback, userInfo, retainContext, releaseContext, [
         (.GCRacingWheelDidConnect, true),
         (.GCRacingWheelDidDisconnect, false),
     ])
@@ -180,20 +235,24 @@ public func gc_unregister_connection_callback(_ token: UnsafeMutableRawPointer?)
     notifyStatesLock.unlock()
     guard let state = removed else { return }
 
-    let notificationCenter = NotificationCenter.default
-    for observer in state.observers {
-        notificationCenter.removeObserver(observer)
+    autoreleasepool {
+        let notificationCenter = NotificationCenter.default
+        for observer in state.observers {
+            notificationCenter.removeObserver(observer)
+        }
+        Unmanaged<BoolNotifyState>.fromOpaque(token).release()
     }
-    Unmanaged<BoolNotifyState>.fromOpaque(token).release()
 }
 
 @_cdecl("gc_register_controller_customizations_callback")
 public func gc_register_controller_customizations_callback(
     _ callback: @escaping GCVoidNotificationCallback,
-    _ userInfo: UnsafeMutableRawPointer?
+    _ userInfo: UnsafeMutableRawPointer?,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer? {
     guard #available(macOS 13.0, *) else { return nil }
-    return registerVoidNotifications(callback, userInfo, [.GCControllerUserCustomizationsDidChange])
+    return registerVoidNotifications(callback, userInfo, retainContext, releaseContext, [.GCControllerUserCustomizationsDidChange])
 }
 
 @_cdecl("gc_unregister_notification_callback")
@@ -204,11 +263,13 @@ public func gc_unregister_notification_callback(_ token: UnsafeMutableRawPointer
     notifyStatesLock.unlock()
     guard let state = removed else { return }
 
-    let notificationCenter = NotificationCenter.default
-    for observer in state.observers {
-        notificationCenter.removeObserver(observer)
+    autoreleasepool {
+        let notificationCenter = NotificationCenter.default
+        for observer in state.observers {
+            notificationCenter.removeObserver(observer)
+        }
+        Unmanaged<VoidNotifyState>.fromOpaque(token).release()
     }
-    Unmanaged<VoidNotifyState>.fromOpaque(token).release()
 }
 
 @_cdecl("gc_start_wireless_controller_discovery")

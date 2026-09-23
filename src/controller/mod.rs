@@ -5,12 +5,10 @@ mod details;
 
 use core::ffi::c_void;
 use core::ptr;
-use std::{
-    ffi::CString,
-    panic::{catch_unwind, AssertUnwindSafe},
-    sync::Mutex,
-};
+use std::{ffi::CString, sync::Mutex};
 
+use doom_fish_utils::callback_context::CallbackContext;
+use doom_fish_utils::panic_safe::catch_user_panic;
 use serde::{Deserialize, Serialize};
 
 use crate::ffi;
@@ -343,43 +341,36 @@ pub struct MouseButtons {
 
 // ---- v0.2: connect/disconnect callbacks ----
 
+type ConnectionCallbackFn = Box<dyn Fn(bool) + Send + Sync + 'static>;
+type NotificationCallbackFn = Box<dyn Fn() + Send + Sync + 'static>;
+
 /// RAII guard for a registered bool-state notification callback. Drops the
 /// `NSNotificationCenter` observer on scope exit.
 pub struct ConnectionWatcher {
     token: *mut core::ffi::c_void,
-    _callback: Box<Box<dyn Fn(bool) + Send + Sync + 'static>>,
+    context: CallbackContext<ConnectionCallbackFn>,
 }
 
 /// RAII guard for a registered notification callback without payload data.
 pub struct NotificationWatcher {
     token: *mut core::ffi::c_void,
-    _callback: Box<Box<dyn Fn() + Send + Sync + 'static>>,
+    context: CallbackContext<NotificationCallbackFn>,
 }
 
-// SAFETY: `token` is an opaque retained Swift registration token, callbacks are serialized by Swift on one queue, and `_callback` is `Send + Sync`.
+// SAFETY: `token` is an opaque retained Swift registration token whose registry is lock-protected, and `context` is `Send + Sync`.
 unsafe impl Send for ConnectionWatcher {}
-// SAFETY: `token` is an opaque retained Swift registration token, callbacks are serialized by Swift on one queue, and `_callback` is `Send + Sync`.
+// SAFETY: `token` is an opaque retained Swift registration token whose registry is lock-protected, and `context` is `Send + Sync`.
 unsafe impl Sync for ConnectionWatcher {}
-// SAFETY: `token` is an opaque retained Swift registration token, callbacks are serialized by Swift on one queue, and `_callback` is `Send + Sync`.
+// SAFETY: `token` is an opaque retained Swift registration token whose registry is lock-protected, and `context` is `Send + Sync`.
 unsafe impl Send for NotificationWatcher {}
-// SAFETY: `token` is an opaque retained Swift registration token, callbacks are serialized by Swift on one queue, and `_callback` is `Send + Sync`.
+// SAFETY: `token` is an opaque retained Swift registration token whose registry is lock-protected, and `context` is `Send + Sync`.
 unsafe impl Sync for NotificationWatcher {}
 
 static DISCOVERY_CALLBACK: Mutex<Option<Box<dyn FnOnce() + Send + 'static>>> = Mutex::new(None);
 
-fn catch_cb_panic(site: &str, f: impl FnOnce()) {
-    if let Err(payload) = catch_unwind(AssertUnwindSafe(f)) {
-        let message = payload
-            .downcast_ref::<&str>()
-            .map(|message| (*message).to_owned())
-            .or_else(|| payload.downcast_ref::<String>().cloned())
-            .unwrap_or_else(|| "non-string panic payload".to_owned());
-        eprintln!("doom-fish-utils: panic in {site} caught at C ABI boundary: {message}");
-    }
-}
-
 impl Drop for ConnectionWatcher {
     fn drop(&mut self) {
+        self.context.deactivate();
         if !self.token.is_null() {
             // SAFETY: `self.token` came from the matching Swift registration call, is non-null here, and we unregister it exactly once before nulling it out.
             unsafe { ffi::gc_unregister_connection_callback(self.token) };
@@ -390,6 +381,7 @@ impl Drop for ConnectionWatcher {
 
 impl Drop for NotificationWatcher {
     fn drop(&mut self) {
+        self.context.deactivate();
         if !self.token.is_null() {
             // SAFETY: `self.token` came from the matching Swift registration call, is non-null here, and we unregister it exactly once before nulling it out.
             unsafe { ffi::gc_unregister_notification_callback(self.token) };
@@ -399,59 +391,71 @@ impl Drop for NotificationWatcher {
 }
 
 unsafe extern "C" fn connection_trampoline(user_info: *mut core::ffi::c_void, value: bool) {
-    let cb_ptr = user_info.cast::<Box<dyn Fn(bool) + Send + Sync + 'static>>();
-    if cb_ptr.is_null() {
-        return;
-    }
-    // SAFETY: `cb_ptr` is the boxed callback pointer stored in `_callback`; it remains valid for the lifetime of the watcher registration.
-    let cb = unsafe { &*cb_ptr };
-    catch_cb_panic("connection_trampoline", || cb(value));
+    // SAFETY: `user_info` is the watcher's `CallbackContext`; the Swift registration holds a reference to it until the registration is deallocated.
+    let _ = unsafe {
+        CallbackContext::<ConnectionCallbackFn>::with(user_info, "connection_trampoline", |callback| {
+            callback(value);
+        })
+    };
 }
 
 unsafe extern "C" fn notification_trampoline(user_info: *mut core::ffi::c_void) {
-    let cb_ptr = user_info.cast::<Box<dyn Fn() + Send + Sync + 'static>>();
-    if cb_ptr.is_null() {
-        return;
-    }
-    // SAFETY: `cb_ptr` is the boxed callback pointer stored in `_callback`; it remains valid for the lifetime of the watcher registration.
-    let cb = unsafe { &*cb_ptr };
-    catch_cb_panic("notification_trampoline", cb);
+    // SAFETY: `user_info` is the watcher's `CallbackContext`; the Swift registration holds a reference to it until the registration is deallocated.
+    let _ = unsafe {
+        CallbackContext::<NotificationCallbackFn>::with(user_info, "notification_trampoline", |callback| {
+            callback();
+        })
+    };
 }
 
 fn watch_connection_with<F>(
-    register: unsafe extern "C" fn(ffi::ConnectionCallback, *mut c_void) -> *mut c_void,
+    register: unsafe extern "C" fn(
+        ffi::ConnectionCallback,
+        *mut c_void,
+        ffi::ContextCallback,
+        ffi::ContextCallback,
+    ) -> *mut c_void,
     callback: F,
 ) -> ConnectionWatcher
 where
     F: Fn(bool) + Send + Sync + 'static,
 {
-    let boxed: Box<dyn Fn(bool) + Send + Sync + 'static> = Box::new(callback);
-    let raw_box = Box::into_raw(Box::new(boxed));
-    // SAFETY: `connection_trampoline` has the expected C ABI and `raw_box` points to a live boxed callback stored into `_callback` below.
-    let token = unsafe { register(connection_trampoline, raw_box.cast::<c_void>()) };
-    ConnectionWatcher {
-        token,
-        // SAFETY: `raw_box` was produced by `Box::into_raw` above and is reconstituted exactly once into `_callback`.
-        _callback: unsafe { Box::from_raw(raw_box) },
-    }
+    let context = CallbackContext::new(Box::new(callback) as ConnectionCallbackFn);
+    // SAFETY: `connection_trampoline` has the expected C ABI, and the Swift registration retains `context` through the RETAIN/RELEASE pair for as long as it can call back.
+    let token = unsafe {
+        register(
+            connection_trampoline,
+            context.as_ptr(),
+            CallbackContext::<ConnectionCallbackFn>::RETAIN,
+            CallbackContext::<ConnectionCallbackFn>::RELEASE,
+        )
+    };
+    ConnectionWatcher { token, context }
 }
 
 fn watch_notification_with<F>(
-    register: unsafe extern "C" fn(ffi::NotificationCallback, *mut c_void) -> *mut c_void,
+    register: unsafe extern "C" fn(
+        ffi::NotificationCallback,
+        *mut c_void,
+        ffi::ContextCallback,
+        ffi::ContextCallback,
+    ) -> *mut c_void,
     callback: F,
 ) -> NotificationWatcher
 where
     F: Fn() + Send + Sync + 'static,
 {
-    let boxed: Box<dyn Fn() + Send + Sync + 'static> = Box::new(callback);
-    let raw_box = Box::into_raw(Box::new(boxed));
-    // SAFETY: `notification_trampoline` has the expected C ABI and `raw_box` points to a live boxed callback stored into `_callback` below.
-    let token = unsafe { register(notification_trampoline, raw_box.cast::<c_void>()) };
-    NotificationWatcher {
-        token,
-        // SAFETY: `raw_box` was produced by `Box::into_raw` above and is reconstituted exactly once into `_callback`.
-        _callback: unsafe { Box::from_raw(raw_box) },
-    }
+    let context = CallbackContext::new(Box::new(callback) as NotificationCallbackFn);
+    // SAFETY: `notification_trampoline` has the expected C ABI, and the Swift registration retains `context` through the RETAIN/RELEASE pair for as long as it can call back.
+    let token = unsafe {
+        register(
+            notification_trampoline,
+            context.as_ptr(),
+            CallbackContext::<NotificationCallbackFn>::RETAIN,
+            CallbackContext::<NotificationCallbackFn>::RELEASE,
+        )
+    };
+    NotificationWatcher { token, context }
 }
 
 /// Register a closure that fires when any controller connects (`true`)
@@ -530,7 +534,7 @@ where
 unsafe extern "C" fn discovery_trampoline(_user_info: *mut c_void) {
     if let Ok(mut slot) = DISCOVERY_CALLBACK.lock() {
         if let Some(callback) = slot.take() {
-            catch_cb_panic("discovery_trampoline", callback);
+            catch_user_panic("discovery_trampoline", callback);
         }
     }
 }
@@ -793,5 +797,49 @@ pub fn dualsense_trigger_vibration_amplitudes(
             amplitudes.values.len(),
             frequency,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    use doom_fish_utils::callback_context::CallbackContext;
+
+    use super::{
+        connection_trampoline, notification_trampoline, ConnectionCallbackFn,
+        NotificationCallbackFn,
+    };
+
+    #[test]
+    fn connection_callback_outlives_the_watcher_but_stops_firing() {
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&hits);
+        let context = CallbackContext::new(Box::new(move |connected: bool| {
+            if connected {
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
+        }) as ConnectionCallbackFn);
+        let swift_reference = context.retained_ptr();
+
+        unsafe { connection_trampoline(swift_reference, true) };
+        assert_eq!(hits.load(Ordering::SeqCst), 1);
+
+        drop(context);
+        unsafe { connection_trampoline(swift_reference, true) };
+        assert_eq!(hits.load(Ordering::SeqCst), 1);
+        assert_eq!(Arc::strong_count(&hits), 2);
+
+        unsafe { (CallbackContext::<ConnectionCallbackFn>::RELEASE)(swift_reference) };
+        assert_eq!(Arc::strong_count(&hits), 1);
+    }
+
+    #[test]
+    fn notification_callback_panics_are_contained() {
+        let context = CallbackContext::new(Box::new(|| panic!("watcher panic")) as NotificationCallbackFn);
+        unsafe { notification_trampoline(context.as_ptr()) };
+        unsafe { notification_trampoline(core::ptr::null_mut()) };
+        assert!(context.is_active());
     }
 }

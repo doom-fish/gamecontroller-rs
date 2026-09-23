@@ -143,6 +143,7 @@ pub const fn verify_ffi_layout() -> bool {
 
 /// Mirrors the `GameController` framework counterpart for `ConnectionCallback`.
 pub type ConnectionCallback = unsafe extern "C" fn(user_info: *mut c_void, connected: bool);
+pub type ContextCallback = unsafe extern "C" fn(context: *mut c_void);
 
 extern "C" {
 /// Calls the `GameController` framework counterpart for `gc_string_free`.
@@ -168,31 +169,43 @@ extern "C" {
     pub fn gc_register_connection_callback(
         callback: ConnectionCallback,
         user_info: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
     ) -> *mut c_void;
 /// Calls the `GameController` framework counterpart for `gc_register_controller_current_callback`.
     pub fn gc_register_controller_current_callback(
         callback: ConnectionCallback,
         user_info: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
     ) -> *mut c_void;
 /// Calls the `GameController` framework counterpart for `gc_register_keyboard_connection_callback`.
     pub fn gc_register_keyboard_connection_callback(
         callback: ConnectionCallback,
         user_info: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
     ) -> *mut c_void;
 /// Calls the `GameController` framework counterpart for `gc_register_mouse_connection_callback`.
     pub fn gc_register_mouse_connection_callback(
         callback: ConnectionCallback,
         user_info: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
     ) -> *mut c_void;
 /// Calls the `GameController` framework counterpart for `gc_register_mouse_current_callback`.
     pub fn gc_register_mouse_current_callback(
         callback: ConnectionCallback,
         user_info: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
     ) -> *mut c_void;
 /// Calls the `GameController` framework counterpart for `gc_register_racing_wheel_connection_callback`.
     pub fn gc_register_racing_wheel_connection_callback(
         callback: ConnectionCallback,
         user_info: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
     ) -> *mut c_void;
 /// Calls the `GameController` framework counterpart for `gc_unregister_connection_callback`.
     pub fn gc_unregister_connection_callback(token: *mut c_void);
@@ -200,6 +213,8 @@ extern "C" {
     pub fn gc_register_controller_customizations_callback(
         callback: NotificationCallback,
         user_info: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
     ) -> *mut c_void;
 /// Calls the `GameController` framework counterpart for `gc_unregister_notification_callback`.
     pub fn gc_unregister_notification_callback(token: *mut c_void);
