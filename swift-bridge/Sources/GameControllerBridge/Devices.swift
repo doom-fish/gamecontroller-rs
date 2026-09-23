@@ -28,6 +28,7 @@ public func gc_first_controller_battery_level() -> Float {
 #if canImport(CoreHaptics)
 import CoreHaptics
 
+private let hapticEnginesLock = NSLock()
 private var hapticEngines: [ObjectIdentifier: CHHapticEngine] = [:]
 
 @available(macOS 11.0, *)
@@ -94,10 +95,14 @@ private func playRumble(
         let pattern = try CHHapticPattern(events: [event], parameters: [])
         let player = try engine.makePlayer(with: pattern)
         try player.start(atTime: 0)
+        hapticEnginesLock.lock()
         hapticEngines[ObjectIdentifier(engine)] = engine
+        hapticEnginesLock.unlock()
         DispatchQueue.main.asyncAfter(deadline: .now() + clampedDuration + 0.1) {
             engine.stop(completionHandler: nil)
+            hapticEnginesLock.lock()
             hapticEngines.removeValue(forKey: ObjectIdentifier(engine))
+            hapticEnginesLock.unlock()
         }
         return true
     } catch {

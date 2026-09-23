@@ -41,8 +41,10 @@ private final class DiscoveryState {
     }
 }
 
+private let notifyStatesLock = NSLock()
 private var boolNotifyStates: [UnsafeMutableRawPointer: BoolNotifyState] = [:]
 private var voidNotifyStates: [UnsafeMutableRawPointer: VoidNotifyState] = [:]
+private let discoveryLock = NSLock()
 private var discoveryState: DiscoveryState?
 
 private func registerBoolNotifications(
@@ -66,7 +68,9 @@ private func registerBoolNotifications(
     }
 
     let token = Unmanaged.passRetained(state).toOpaque()
+    notifyStatesLock.lock()
     boolNotifyStates[token] = state
+    notifyStatesLock.unlock()
     return token
 }
 
@@ -91,7 +95,9 @@ private func registerVoidNotifications(
     }
 
     let token = Unmanaged.passRetained(state).toOpaque()
+    notifyStatesLock.lock()
     voidNotifyStates[token] = state
+    notifyStatesLock.unlock()
     return token
 }
 
@@ -168,7 +174,11 @@ public func gc_register_racing_wheel_connection_callback(
 
 @_cdecl("gc_unregister_connection_callback")
 public func gc_unregister_connection_callback(_ token: UnsafeMutableRawPointer?) {
-    guard let token, let state = boolNotifyStates.removeValue(forKey: token) else { return }
+    guard let token else { return }
+    notifyStatesLock.lock()
+    let removed = boolNotifyStates.removeValue(forKey: token)
+    notifyStatesLock.unlock()
+    guard let state = removed else { return }
 
     let notificationCenter = NotificationCenter.default
     for observer in state.observers {
@@ -188,7 +198,11 @@ public func gc_register_controller_customizations_callback(
 
 @_cdecl("gc_unregister_notification_callback")
 public func gc_unregister_notification_callback(_ token: UnsafeMutableRawPointer?) {
-    guard let token, let state = voidNotifyStates.removeValue(forKey: token) else { return }
+    guard let token else { return }
+    notifyStatesLock.lock()
+    let removed = voidNotifyStates.removeValue(forKey: token)
+    notifyStatesLock.unlock()
+    guard let state = removed else { return }
 
     let notificationCenter = NotificationCenter.default
     for observer in state.observers {
@@ -202,17 +216,24 @@ public func gc_start_wireless_controller_discovery(
     _ callback: GCDiscoveryCallback?,
     _ userInfo: UnsafeMutableRawPointer?
 ) {
-    discoveryState = callback.map { DiscoveryState(callback: $0, userInfo: userInfo) }
+    let state = callback.map { DiscoveryState(callback: $0, userInfo: userInfo) }
+    discoveryLock.lock()
+    discoveryState = state
+    discoveryLock.unlock()
     GCController.startWirelessControllerDiscovery {
-        let state = discoveryState
+        discoveryLock.lock()
+        let pending = discoveryState
         discoveryState = nil
-        state?.complete()
+        discoveryLock.unlock()
+        pending?.complete()
     }
 }
 
 @_cdecl("gc_stop_wireless_controller_discovery")
 public func gc_stop_wireless_controller_discovery() {
+    discoveryLock.lock()
     discoveryState = nil
+    discoveryLock.unlock()
     GCController.stopWirelessControllerDiscovery()
 }
 
