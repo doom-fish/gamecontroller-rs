@@ -51,95 +51,250 @@ public struct GCMicroGamepadEventRaw {
     public var dpad_y: Float
 }
 
-// MARK: - 1. Controller Connection Stream (NSNotificationCenter-driven)
-
-private final class ControllerConnectionBridge {
+private final class StreamSubscriber {
     let onEvent: GCStreamEventCallback
     let ctx: UnsafeMutableRawPointer
-    var observers: [NSObjectProtocol] = []
+    let releaseContext: GCContextCallback
 
-    init(onEvent: @escaping GCStreamEventCallback, ctx: UnsafeMutableRawPointer) {
+    init(
+        onEvent: @escaping GCStreamEventCallback,
+        ctx: UnsafeMutableRawPointer,
+        retainContext: GCContextCallback,
+        releaseContext: @escaping GCContextCallback
+    ) {
         self.onEvent = onEvent
         self.ctx = ctx
+        self.releaseContext = releaseContext
+        retainContext(ctx)
+    }
+
+    deinit {
+        releaseContext(ctx)
+    }
+
+    func send(_ kind: Int32, _ payload: UnsafeRawPointer?) {
+        onEvent(kind, payload, ctx)
+    }
+}
+
+private protocol StreamSubscription: AnyObject {
+    func cancel()
+}
+
+private func retainSubscription(_ subscription: StreamSubscription) -> UnsafeMutableRawPointer {
+    Unmanaged.passRetained(subscription as AnyObject).toOpaque()
+}
+
+private func releaseSubscription(_ handle: UnsafeMutableRawPointer) {
+    autoreleasepool {
+        let unmanaged = Unmanaged<AnyObject>.fromOpaque(handle)
+        (unmanaged.takeUnretainedValue() as? StreamSubscription)?.cancel()
+        unmanaged.release()
+    }
+}
+
+private func onMainQueue(_ work: @escaping () -> Void) {
+    if Thread.isMainThread {
+        work()
+    } else {
+        DispatchQueue.main.async(execute: work)
+    }
+}
+
+private final class HandlerSlot {
+    weak var target: AnyObject?
+    let restore: () -> Void
+
+    init(target: AnyObject, restore: @escaping () -> Void) {
+        self.target = target
+        self.restore = restore
+    }
+}
+
+private final class StreamHub {
+    private let lock = NSLock()
+    private var subscribers: [StreamSubscriber] = []
+    private var slots: [ObjectIdentifier: HandlerSlot] = [:]
+    private var observers: [NSObjectProtocol] = []
+    private var installed = false
+    private let connectNotifications: [Notification.Name]
+    private let installAll: (StreamHub) -> Void
+    private let installConnected: (StreamHub, Notification) -> Void
+
+    init(
+        connectNotifications: [Notification.Name],
+        installAll: @escaping (StreamHub) -> Void,
+        installConnected: @escaping (StreamHub, Notification) -> Void
+    ) {
+        self.connectNotifications = connectNotifications
+        self.installAll = installAll
+        self.installConnected = installConnected
+    }
+
+    func add(_ subscriber: StreamSubscriber) {
+        lock.lock()
+        subscribers.append(subscriber)
+        lock.unlock()
+        onMainQueue { self.reconcile() }
+    }
+
+    func remove(_ subscriber: StreamSubscriber) {
+        lock.lock()
+        subscribers.removeAll { $0 === subscriber }
+        lock.unlock()
+        onMainQueue { self.reconcile() }
+    }
+
+    func emit(_ kind: Int32, _ payload: UnsafeRawPointer?) {
+        lock.lock()
+        let current = subscribers
+        lock.unlock()
+        for subscriber in current {
+            subscriber.send(kind, payload)
+        }
+    }
+
+    func install(on target: AnyObject, _ attach: () -> () -> Void) {
+        let key = ObjectIdentifier(target)
+        if let slot = slots[key], slot.target === target {
+            return
+        }
+        slots[key] = HandlerSlot(target: target, restore: attach())
+    }
+
+    private func reconcile() {
+        lock.lock()
+        let wanted = !subscribers.isEmpty
+        lock.unlock()
+        if wanted && !installed {
+            installed = true
+            let center = NotificationCenter.default
+            observers = connectNotifications.map { name in
+                center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                    guard let self, self.installed else { return }
+                    self.installConnected(self, note)
+                }
+            }
+            installAll(self)
+        } else if !wanted && installed {
+            installed = false
+            let center = NotificationCenter.default
+            for observer in observers {
+                center.removeObserver(observer)
+            }
+            observers = []
+            for slot in slots.values where slot.target != nil {
+                slot.restore()
+            }
+            slots = [:]
+        }
+    }
+}
+
+private final class HubSubscription: StreamSubscription {
+    let hub: StreamHub
+    let subscriber: StreamSubscriber
+
+    init(hub: StreamHub, subscriber: StreamSubscriber) {
+        self.hub = hub
+        self.subscriber = subscriber
+        hub.add(subscriber)
+    }
+
+    func cancel() {
+        hub.remove(subscriber)
+    }
+}
+
+private func subscribeToHub(
+    _ hub: StreamHub,
+    _ onEvent: @escaping GCStreamEventCallback,
+    _ ctx: UnsafeMutableRawPointer,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
+) -> UnsafeMutableRawPointer {
+    let subscriber = StreamSubscriber(
+        onEvent: onEvent,
+        ctx: ctx,
+        retainContext: retainContext,
+        releaseContext: releaseContext
+    )
+    return retainSubscription(HubSubscription(hub: hub, subscriber: subscriber))
+}
+
+// MARK: - 1. Controller Connection Stream (NSNotificationCenter-driven)
+
+private func sendConnectionEvent(_ subscriber: StreamSubscriber, _ kind: Int32, _ note: Notification) {
+    if let name = (note.object as? GCController)?.vendorName {
+        name.withCString { ptr in
+            subscriber.send(kind, UnsafeRawPointer(ptr))
+        }
+    } else {
+        subscriber.send(kind, nil)
+    }
+}
+
+private final class ControllerConnectionBridge: StreamSubscription {
+    private let lock = NSLock()
+    private var observers: [NSObjectProtocol] = []
+
+    init(subscriber: StreamSubscriber) {
         let nc = NotificationCenter.default
         let connectObs = nc.addObserver(
             forName: .GCControllerDidConnect, object: nil, queue: .main
-        ) { [weak self] note in
-            guard let self else { return }
-            let vendorName = (note.object as? GCController)?.vendorName
-            if let name = vendorName {
-                name.withCString { ptr in
-                    self.onEvent(0, UnsafeRawPointer(ptr), self.ctx)
-                }
-            } else {
-                self.onEvent(0, nil, self.ctx)
-            }
+        ) { note in
+            sendConnectionEvent(subscriber, 0, note)
         }
         let disconnectObs = nc.addObserver(
             forName: .GCControllerDidDisconnect, object: nil, queue: .main
-        ) { [weak self] note in
-            guard let self else { return }
-            let vendorName = (note.object as? GCController)?.vendorName
-            if let name = vendorName {
-                name.withCString { ptr in
-                    self.onEvent(1, UnsafeRawPointer(ptr), self.ctx)
-                }
-            } else {
-                self.onEvent(1, nil, self.ctx)
-            }
+        ) { note in
+            sendConnectionEvent(subscriber, 1, note)
         }
         observers = [connectObs, disconnectObs]
     }
 
-    deinit {
+    func cancel() {
+        lock.lock()
+        let current = observers
+        observers = []
+        lock.unlock()
         let nc = NotificationCenter.default
-        for obs in observers { nc.removeObserver(obs) }
+        for obs in current { nc.removeObserver(obs) }
     }
 }
 
 @_cdecl("gc_stream_controller_connection_subscribe")
 public func gc_stream_controller_connection_subscribe(
     _ onEvent: @escaping GCStreamEventCallback,
-    _ ctx: UnsafeMutableRawPointer
+    _ ctx: UnsafeMutableRawPointer,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer {
-    Unmanaged.passRetained(ControllerConnectionBridge(onEvent: onEvent, ctx: ctx)).toOpaque()
+    let subscriber = StreamSubscriber(
+        onEvent: onEvent,
+        ctx: ctx,
+        retainContext: retainContext,
+        releaseContext: releaseContext
+    )
+    return autoreleasepool {
+        retainSubscription(ControllerConnectionBridge(subscriber: subscriber))
+    }
 }
 
 @_cdecl("gc_stream_controller_connection_unsubscribe")
 public func gc_stream_controller_connection_unsubscribe(_ handle: UnsafeMutableRawPointer) {
-    let bridge = Unmanaged<ControllerConnectionBridge>.fromOpaque(handle)
-    let nc = NotificationCenter.default
-    for obs in bridge.takeUnretainedValue().observers { nc.removeObserver(obs) }
-    bridge.release()
+    releaseSubscription(handle)
 }
 
 // MARK: - 2. Extended Gamepad Value Stream (valueChangedHandler)
 
-private final class GamepadValueBridge {
-    let onEvent: GCStreamEventCallback
-    let ctx: UnsafeMutableRawPointer
-    var observers: [NSObjectProtocol] = []
-    var handledControllers: Set<ObjectIdentifier> = []
-
-    init(onEvent: @escaping GCStreamEventCallback, ctx: UnsafeMutableRawPointer) {
-        self.onEvent = onEvent
-        self.ctx = ctx
-        for ctrl in GCController.controllers() { attachHandler(to: ctrl) }
-        let obs = NotificationCenter.default.addObserver(
-            forName: .GCControllerDidConnect, object: nil, queue: .main
-        ) { [weak self] note in
-            guard let self, let ctrl = note.object as? GCController else { return }
-            self.attachHandler(to: ctrl)
-        }
-        observers.append(obs)
-    }
-
-    private func attachHandler(to controller: GCController) {
-        guard let gp = controller.extendedGamepad else { return }
-        let identifier = ObjectIdentifier(controller)
-        guard handledControllers.insert(identifier).inserted else { return }
-        gp.valueChangedHandler = { [weak self] (gamepad, _) in
-            guard let self else { return }
+private func installGamepadHandler(_ hub: StreamHub, _ controller: GCController) {
+    guard let gamepad = controller.extendedGamepad else { return }
+    hub.install(on: gamepad) {
+        let previous = gamepad.valueChangedHandler
+        gamepad.valueChangedHandler = { [weak hub] gamepad, element in
+            previous?(gamepad, element)
+            guard let hub else { return }
             var raw = GCControllerInfoRaw(
                 vendor_name: nil,
                 product_category: nil,
@@ -167,196 +322,155 @@ private final class GamepadValueBridge {
                 dpad_right: gamepad.dpad.right.value
             )
             withUnsafePointer(to: &raw) { ptr in
-                self.onEvent(0, UnsafeRawPointer(ptr), self.ctx)
+                hub.emit(0, UnsafeRawPointer(ptr))
             }
         }
-    }
-
-    deinit {
-        let nc = NotificationCenter.default
-        for obs in observers { nc.removeObserver(obs) }
-        for ctrl in GCController.controllers() { ctrl.extendedGamepad?.valueChangedHandler = nil }
+        return { [weak gamepad] in gamepad?.valueChangedHandler = previous }
     }
 }
+
+private let gamepadValueHub = StreamHub(
+    connectNotifications: [.GCControllerDidConnect],
+    installAll: { hub in
+        for controller in GCController.controllers() { installGamepadHandler(hub, controller) }
+    },
+    installConnected: { hub, note in
+        if let controller = note.object as? GCController { installGamepadHandler(hub, controller) }
+    }
+)
 
 @_cdecl("gc_stream_gamepad_value_subscribe")
 public func gc_stream_gamepad_value_subscribe(
     _ onEvent: @escaping GCStreamEventCallback,
-    _ ctx: UnsafeMutableRawPointer
+    _ ctx: UnsafeMutableRawPointer,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer {
-    Unmanaged.passRetained(GamepadValueBridge(onEvent: onEvent, ctx: ctx)).toOpaque()
+    subscribeToHub(gamepadValueHub, onEvent, ctx, retainContext, releaseContext)
 }
 
 @_cdecl("gc_stream_gamepad_value_unsubscribe")
 public func gc_stream_gamepad_value_unsubscribe(_ handle: UnsafeMutableRawPointer) {
-    Unmanaged<GamepadValueBridge>.fromOpaque(handle).release()
+    releaseSubscription(handle)
 }
 
 // MARK: - 3. Keyboard Key Stream (keyChangedHandler)
 
-private final class KeyboardKeyBridge {
-    let onEvent: GCStreamEventCallback
-    let ctx: UnsafeMutableRawPointer
-    var observers: [NSObjectProtocol] = []
-
-    init(onEvent: @escaping GCStreamEventCallback, ctx: UnsafeMutableRawPointer) {
-        self.onEvent = onEvent
-        self.ctx = ctx
-        attachKeyboardHandler()
-        if #available(macOS 11.0, *) {
-            let obs = NotificationCenter.default.addObserver(
-                forName: .GCKeyboardDidConnect, object: nil, queue: .main
-            ) { [weak self] _ in self?.attachKeyboardHandler() }
-            observers.append(obs)
-        }
-    }
-
-    private func attachKeyboardHandler() {
-        if #available(macOS 11.0, *) {
-            GCKeyboard.coalesced?.keyboardInput?.keyChangedHandler = {
-                [weak self] (_, element, keyCode, pressed) in
-                guard let self else { return }
-                var raw = GCKeyEventRaw(
-                    keycode: Int64(keyCode.rawValue),
-                    pressed: pressed,
-                    value: element.value
-                )
-                withUnsafePointer(to: &raw) { ptr in
-                    self.onEvent(0, UnsafeRawPointer(ptr), self.ctx)
-                }
+private func installKeyboardHandler(_ hub: StreamHub) {
+    guard let input = GCKeyboard.coalesced?.keyboardInput else { return }
+    hub.install(on: input) {
+        let previous = input.keyChangedHandler
+        input.keyChangedHandler = { [weak hub] keyboardInput, element, keyCode, pressed in
+            previous?(keyboardInput, element, keyCode, pressed)
+            guard let hub else { return }
+            var raw = GCKeyEventRaw(
+                keycode: Int64(keyCode.rawValue),
+                pressed: pressed,
+                value: element.value
+            )
+            withUnsafePointer(to: &raw) { ptr in
+                hub.emit(0, UnsafeRawPointer(ptr))
             }
         }
-    }
-
-    deinit {
-        let nc = NotificationCenter.default
-        for obs in observers { nc.removeObserver(obs) }
-        if #available(macOS 11.0, *) {
-            GCKeyboard.coalesced?.keyboardInput?.keyChangedHandler = nil
-        }
+        return { [weak input] in input?.keyChangedHandler = previous }
     }
 }
+
+private let keyboardKeyHub = StreamHub(
+    connectNotifications: [.GCKeyboardDidConnect],
+    installAll: { hub in installKeyboardHandler(hub) },
+    installConnected: { hub, _ in installKeyboardHandler(hub) }
+)
 
 @_cdecl("gc_stream_keyboard_key_subscribe")
 public func gc_stream_keyboard_key_subscribe(
     _ onEvent: @escaping GCStreamEventCallback,
-    _ ctx: UnsafeMutableRawPointer
+    _ ctx: UnsafeMutableRawPointer,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer {
-    Unmanaged.passRetained(KeyboardKeyBridge(onEvent: onEvent, ctx: ctx)).toOpaque()
+    subscribeToHub(keyboardKeyHub, onEvent, ctx, retainContext, releaseContext)
 }
 
 @_cdecl("gc_stream_keyboard_key_unsubscribe")
 public func gc_stream_keyboard_key_unsubscribe(_ handle: UnsafeMutableRawPointer) {
-    Unmanaged<KeyboardKeyBridge>.fromOpaque(handle).release()
+    releaseSubscription(handle)
 }
 
 // MARK: - 4. Mouse Input Stream (mouseMovedHandler / pressedChangedHandler)
 
-private final class MouseInputBridge {
-    let onEvent: GCStreamEventCallback
-    let ctx: UnsafeMutableRawPointer
-    var observers: [NSObjectProtocol] = []
-
-    init(onEvent: @escaping GCStreamEventCallback, ctx: UnsafeMutableRawPointer) {
-        self.onEvent = onEvent
-        self.ctx = ctx
-        if #available(macOS 11.0, *) {
-            attachMouseHandlers()
-            let obs = NotificationCenter.default.addObserver(
-                forName: .GCMouseDidConnect, object: nil, queue: .main
-            ) { [weak self] _ in self?.attachMouseHandlers() }
-            observers.append(obs)
-        }
-    }
-
-    private func attachMouseHandlers() {
-        if #available(macOS 11.0, *) {
-            guard let mouse = GCMouse.current, let input = mouse.mouseInput else { return }
-            input.mouseMovedHandler = { [weak self] (_, dx, dy) in
-                guard let self else { return }
-                var raw = GCMouseEventRaw(delta_x: dx, delta_y: dy, pressed: false, value: 0)
-                withUnsafePointer(to: &raw) { ptr in
-                    self.onEvent(0, UnsafeRawPointer(ptr), self.ctx)
-                }
-            }
-            input.leftButton.pressedChangedHandler = { [weak self] (_, value, pressed) in
-                guard let self else { return }
-                var raw = GCMouseEventRaw(delta_x: 0, delta_y: 0, pressed: pressed, value: value)
-                withUnsafePointer(to: &raw) { ptr in
-                    self.onEvent(1, UnsafeRawPointer(ptr), self.ctx)
-                }
-            }
-            input.rightButton?.pressedChangedHandler = { [weak self] (_, value, pressed) in
-                guard let self else { return }
-                var raw = GCMouseEventRaw(delta_x: 0, delta_y: 0, pressed: pressed, value: value)
-                withUnsafePointer(to: &raw) { ptr in
-                    self.onEvent(2, UnsafeRawPointer(ptr), self.ctx)
-                }
-            }
-            input.middleButton?.pressedChangedHandler = { [weak self] (_, value, pressed) in
-                guard let self else { return }
-                var raw = GCMouseEventRaw(delta_x: 0, delta_y: 0, pressed: pressed, value: value)
-                withUnsafePointer(to: &raw) { ptr in
-                    self.onEvent(3, UnsafeRawPointer(ptr), self.ctx)
-                }
+private func installMouseHandlers(_ hub: StreamHub, _ mouse: GCMouse) {
+    guard let input = mouse.mouseInput else { return }
+    hub.install(on: input) {
+        let previousMoved = input.mouseMovedHandler
+        input.mouseMovedHandler = { [weak hub] mouseInput, dx, dy in
+            previousMoved?(mouseInput, dx, dy)
+            guard let hub else { return }
+            var raw = GCMouseEventRaw(delta_x: dx, delta_y: dy, pressed: false, value: 0)
+            withUnsafePointer(to: &raw) { ptr in
+                hub.emit(0, UnsafeRawPointer(ptr))
             }
         }
-    }
-
-    deinit {
-        let nc = NotificationCenter.default
-        for obs in observers { nc.removeObserver(obs) }
-        if #available(macOS 11.0, *) {
-            if let mouse = GCMouse.current, let input = mouse.mouseInput {
-                input.mouseMovedHandler = nil
-                input.leftButton.pressedChangedHandler = nil
-                input.rightButton?.pressedChangedHandler = nil
-                input.middleButton?.pressedChangedHandler = nil
+        let buttons: [(GCControllerButtonInput?, Int32)] = [
+            (input.leftButton, 1),
+            (input.rightButton, 2),
+            (input.middleButton, 3),
+        ]
+        var restores: [() -> Void] = []
+        for (candidate, kind) in buttons {
+            guard let button = candidate else { continue }
+            let previous = button.pressedChangedHandler
+            button.pressedChangedHandler = { [weak hub] element, value, pressed in
+                previous?(element, value, pressed)
+                guard let hub else { return }
+                var raw = GCMouseEventRaw(delta_x: 0, delta_y: 0, pressed: pressed, value: value)
+                withUnsafePointer(to: &raw) { ptr in
+                    hub.emit(kind, UnsafeRawPointer(ptr))
+                }
             }
+            restores.append { [weak button] in button?.pressedChangedHandler = previous }
+        }
+        return { [weak input] in
+            input?.mouseMovedHandler = previousMoved
+            for restore in restores { restore() }
         }
     }
 }
+
+private let mouseInputHub = StreamHub(
+    connectNotifications: [.GCMouseDidConnect],
+    installAll: { hub in
+        for mouse in GCMouse.mice() { installMouseHandlers(hub, mouse) }
+    },
+    installConnected: { hub, note in
+        if let mouse = note.object as? GCMouse { installMouseHandlers(hub, mouse) }
+    }
+)
 
 @_cdecl("gc_stream_mouse_input_subscribe")
 public func gc_stream_mouse_input_subscribe(
     _ onEvent: @escaping GCStreamEventCallback,
-    _ ctx: UnsafeMutableRawPointer
+    _ ctx: UnsafeMutableRawPointer,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer {
-    Unmanaged.passRetained(MouseInputBridge(onEvent: onEvent, ctx: ctx)).toOpaque()
+    subscribeToHub(mouseInputHub, onEvent, ctx, retainContext, releaseContext)
 }
 
 @_cdecl("gc_stream_mouse_input_unsubscribe")
 public func gc_stream_mouse_input_unsubscribe(_ handle: UnsafeMutableRawPointer) {
-    Unmanaged<MouseInputBridge>.fromOpaque(handle).release()
+    releaseSubscription(handle)
 }
 
 // MARK: - 5. Motion Stream (GCMotion.valueChangedHandler)
 
-private final class MotionBridge {
-    let onEvent: GCStreamEventCallback
-    let ctx: UnsafeMutableRawPointer
-    var observers: [NSObjectProtocol] = []
-    var handledControllers: Set<ObjectIdentifier> = []
-
-    init(onEvent: @escaping GCStreamEventCallback, ctx: UnsafeMutableRawPointer) {
-        self.onEvent = onEvent
-        self.ctx = ctx
-        for ctrl in GCController.controllers() { attachHandler(to: ctrl) }
-        let obs = NotificationCenter.default.addObserver(
-            forName: .GCControllerDidConnect, object: nil, queue: .main
-        ) { [weak self] note in
-            guard let self, let ctrl = note.object as? GCController else { return }
-            self.attachHandler(to: ctrl)
-        }
-        observers.append(obs)
-    }
-
-    private func attachHandler(to controller: GCController) {
-        guard let motion = controller.motion else { return }
-        let identifier = ObjectIdentifier(controller)
-        guard handledControllers.insert(identifier).inserted else { return }
-        motion.valueChangedHandler = { [weak self] m in
-            guard let self else { return }
+private func installMotionHandler(_ hub: StreamHub, _ controller: GCController) {
+    guard let motion = controller.motion else { return }
+    hub.install(on: motion) {
+        let previous = motion.valueChangedHandler
+        motion.valueChangedHandler = { [weak hub] m in
+            previous?(m)
+            guard let hub else { return }
             var raw = GCMotionEventRaw(
                 gravity_x: m.gravity.x,
                 gravity_y: m.gravity.y,
@@ -373,58 +487,47 @@ private final class MotionBridge {
                 rotation_rate_z: m.rotationRate.z
             )
             withUnsafePointer(to: &raw) { ptr in
-                self.onEvent(0, UnsafeRawPointer(ptr), self.ctx)
+                hub.emit(0, UnsafeRawPointer(ptr))
             }
         }
-    }
-
-    deinit {
-        let nc = NotificationCenter.default
-        for obs in observers { nc.removeObserver(obs) }
-        for ctrl in GCController.controllers() { ctrl.motion?.valueChangedHandler = nil }
+        return { [weak motion] in motion?.valueChangedHandler = previous }
     }
 }
+
+private let motionHub = StreamHub(
+    connectNotifications: [.GCControllerDidConnect],
+    installAll: { hub in
+        for controller in GCController.controllers() { installMotionHandler(hub, controller) }
+    },
+    installConnected: { hub, note in
+        if let controller = note.object as? GCController { installMotionHandler(hub, controller) }
+    }
+)
 
 @_cdecl("gc_stream_motion_subscribe")
 public func gc_stream_motion_subscribe(
     _ onEvent: @escaping GCStreamEventCallback,
-    _ ctx: UnsafeMutableRawPointer
+    _ ctx: UnsafeMutableRawPointer,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer {
-    Unmanaged.passRetained(MotionBridge(onEvent: onEvent, ctx: ctx)).toOpaque()
+    subscribeToHub(motionHub, onEvent, ctx, retainContext, releaseContext)
 }
 
 @_cdecl("gc_stream_motion_unsubscribe")
 public func gc_stream_motion_unsubscribe(_ handle: UnsafeMutableRawPointer) {
-    Unmanaged<MotionBridge>.fromOpaque(handle).release()
+    releaseSubscription(handle)
 }
 
 // MARK: - 6. Micro Gamepad Value Stream (GCMicroGamepad.valueChangedHandler)
 
-private final class MicroGamepadValueBridge {
-    let onEvent: GCStreamEventCallback
-    let ctx: UnsafeMutableRawPointer
-    var observers: [NSObjectProtocol] = []
-    var handledControllers: Set<ObjectIdentifier> = []
-
-    init(onEvent: @escaping GCStreamEventCallback, ctx: UnsafeMutableRawPointer) {
-        self.onEvent = onEvent
-        self.ctx = ctx
-        for ctrl in GCController.controllers() { attachHandler(to: ctrl) }
-        let obs = NotificationCenter.default.addObserver(
-            forName: .GCControllerDidConnect, object: nil, queue: .main
-        ) { [weak self] note in
-            guard let self, let ctrl = note.object as? GCController else { return }
-            self.attachHandler(to: ctrl)
-        }
-        observers.append(obs)
-    }
-
-    private func attachHandler(to controller: GCController) {
-        guard let gamepad = controller.microGamepad else { return }
-        let identifier = ObjectIdentifier(controller)
-        guard handledControllers.insert(identifier).inserted else { return }
-        gamepad.valueChangedHandler = { [weak self] (gp, _) in
-            guard let self else { return }
+private func installMicroGamepadHandler(_ hub: StreamHub, _ controller: GCController) {
+    guard let gamepad = controller.microGamepad else { return }
+    hub.install(on: gamepad) {
+        let previous = gamepad.valueChangedHandler
+        gamepad.valueChangedHandler = { [weak hub] gp, element in
+            previous?(gp, element)
+            guard let hub else { return }
             var raw = GCMicroGamepadEventRaw(
                 button_a: gp.buttonA.value,
                 button_x: gp.buttonX.value,
@@ -432,27 +535,34 @@ private final class MicroGamepadValueBridge {
                 dpad_y: gp.dpad.yAxis.value
             )
             withUnsafePointer(to: &raw) { ptr in
-                self.onEvent(0, UnsafeRawPointer(ptr), self.ctx)
+                hub.emit(0, UnsafeRawPointer(ptr))
             }
         }
-    }
-
-    deinit {
-        let nc = NotificationCenter.default
-        for obs in observers { nc.removeObserver(obs) }
-        for ctrl in GCController.controllers() { ctrl.microGamepad?.valueChangedHandler = nil }
+        return { [weak gamepad] in gamepad?.valueChangedHandler = previous }
     }
 }
+
+private let microGamepadValueHub = StreamHub(
+    connectNotifications: [.GCControllerDidConnect],
+    installAll: { hub in
+        for controller in GCController.controllers() { installMicroGamepadHandler(hub, controller) }
+    },
+    installConnected: { hub, note in
+        if let controller = note.object as? GCController { installMicroGamepadHandler(hub, controller) }
+    }
+)
 
 @_cdecl("gc_stream_micro_gamepad_subscribe")
 public func gc_stream_micro_gamepad_subscribe(
     _ onEvent: @escaping GCStreamEventCallback,
-    _ ctx: UnsafeMutableRawPointer
+    _ ctx: UnsafeMutableRawPointer,
+    _ retainContext: GCContextCallback,
+    _ releaseContext: @escaping GCContextCallback
 ) -> UnsafeMutableRawPointer {
-    Unmanaged.passRetained(MicroGamepadValueBridge(onEvent: onEvent, ctx: ctx)).toOpaque()
+    subscribeToHub(microGamepadValueHub, onEvent, ctx, retainContext, releaseContext)
 }
 
 @_cdecl("gc_stream_micro_gamepad_unsubscribe")
 public func gc_stream_micro_gamepad_unsubscribe(_ handle: UnsafeMutableRawPointer) {
-    Unmanaged<MicroGamepadValueBridge>.fromOpaque(handle).release()
+    releaseSubscription(handle)
 }

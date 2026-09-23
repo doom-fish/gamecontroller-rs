@@ -28,8 +28,9 @@
 
 use crate::controller::{self, Buttons, Dpad, Thumbsticks, Triggers};
 use crate::error::GameControllerError;
-use crate::ffi::ControllerInfoRaw;
+use crate::ffi::{ContextCallback, ControllerInfoRaw};
 use core::ffi::{c_char, c_void};
+use doom_fish_utils::callback_context::CallbackContext;
 use doom_fish_utils::completion::{AsyncCompletion, AsyncCompletionFuture};
 use doom_fish_utils::stream::{AsyncStreamSender, BoundedAsyncStream, NextItem};
 use std::ffi::CStr;
@@ -40,22 +41,51 @@ use std::task::{Context, Poll};
 // ── FFI declarations ──────────────────────────────────────────────────────────
 
 type StreamCallback = unsafe extern "C" fn(i32, *const c_void, *mut c_void);
+type SubscribeFn =
+    unsafe extern "C" fn(StreamCallback, *mut c_void, ContextCallback, ContextCallback) -> *mut c_void;
 
 unsafe extern "C" {
     fn gc_stream_controller_connection_subscribe(
         cb: StreamCallback,
         ctx: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
     ) -> *mut c_void;
     fn gc_stream_controller_connection_unsubscribe(handle: *mut c_void);
-    fn gc_stream_gamepad_value_subscribe(cb: StreamCallback, ctx: *mut c_void) -> *mut c_void;
+    fn gc_stream_gamepad_value_subscribe(
+        cb: StreamCallback,
+        ctx: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
+    ) -> *mut c_void;
     fn gc_stream_gamepad_value_unsubscribe(handle: *mut c_void);
-    fn gc_stream_keyboard_key_subscribe(cb: StreamCallback, ctx: *mut c_void) -> *mut c_void;
+    fn gc_stream_keyboard_key_subscribe(
+        cb: StreamCallback,
+        ctx: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
+    ) -> *mut c_void;
     fn gc_stream_keyboard_key_unsubscribe(handle: *mut c_void);
-    fn gc_stream_mouse_input_subscribe(cb: StreamCallback, ctx: *mut c_void) -> *mut c_void;
+    fn gc_stream_mouse_input_subscribe(
+        cb: StreamCallback,
+        ctx: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
+    ) -> *mut c_void;
     fn gc_stream_mouse_input_unsubscribe(handle: *mut c_void);
-    fn gc_stream_motion_subscribe(cb: StreamCallback, ctx: *mut c_void) -> *mut c_void;
+    fn gc_stream_motion_subscribe(
+        cb: StreamCallback,
+        ctx: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
+    ) -> *mut c_void;
     fn gc_stream_motion_unsubscribe(handle: *mut c_void);
-    fn gc_stream_micro_gamepad_subscribe(cb: StreamCallback, ctx: *mut c_void) -> *mut c_void;
+    fn gc_stream_micro_gamepad_subscribe(
+        cb: StreamCallback,
+        ctx: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
+    ) -> *mut c_void;
     fn gc_stream_micro_gamepad_unsubscribe(handle: *mut c_void);
 }
 
@@ -111,51 +141,53 @@ struct RawMicroGamepadEvent {
 
 // ── RAII subscription handle ──────────────────────────────────────────────────
 
-/// RAII guard: drops the Swift bridge object and frees the Rust sender on drop.
-struct SubscriptionHandle<T> {
+/// RAII guard: cancels the Swift subscription and releases the Rust sender on drop.
+struct SubscriptionHandle<T: Send + 'static> {
     swift_handle: *mut c_void,
-    sender_ptr: *mut AsyncStreamSender<T>,
+    context: CallbackContext<AsyncStreamSender<T>>,
     unsubscribe: unsafe extern "C" fn(*mut c_void),
 }
 
-impl<T> Drop for SubscriptionHandle<T> {
+impl<T: Send + 'static> Drop for SubscriptionHandle<T> {
     fn drop(&mut self) {
+        self.context.deactivate();
         if !self.swift_handle.is_null() {
             // SAFETY: `swift_handle` came from the matching subscribe call, is non-null here, and drop runs this unsubscribe exactly once.
             unsafe { (self.unsubscribe)(self.swift_handle) };
         }
-        if !self.sender_ptr.is_null() {
-            // SAFETY: `sender_ptr` came from `Box::into_raw` in `make_pair`, is non-null here, and is reconstituted exactly once during drop.
-            unsafe { drop(Box::from_raw(self.sender_ptr)) };
-        }
     }
 }
 
-// SAFETY: the Swift handle is a retained Objective-C object and `sender_ptr` remains exclusively owned by this handle.
-unsafe impl<T: Send> Send for SubscriptionHandle<T> {}
-// SAFETY: the Swift handle and boxed sender are only touched through drop, and `T: Sync` keeps shared access thread-safe.
-unsafe impl<T: Sync> Sync for SubscriptionHandle<T> {}
+// SAFETY: the Swift handle is a retained object that is only passed to its thread-safe unsubscribe function in drop, and `context` is `Send + Sync`.
+unsafe impl<T: Send + 'static> Send for SubscriptionHandle<T> {}
+// SAFETY: the Swift handle is only touched through drop, and `context` is `Send + Sync`.
+unsafe impl<T: Send + 'static> Sync for SubscriptionHandle<T> {}
 
-// ── Helper: make (stream, sender_ptr) pair ────────────────────────────────────
-
-fn make_pair<T>(capacity: usize) -> (BoundedAsyncStream<T>, *mut AsyncStreamSender<T>) {
+fn subscribe_stream<T: Send + 'static>(
+    capacity: usize,
+    subscribe: SubscribeFn,
+    callback: StreamCallback,
+    unsubscribe: unsafe extern "C" fn(*mut c_void),
+) -> (BoundedAsyncStream<T>, SubscriptionHandle<T>) {
     let (stream, sender) = BoundedAsyncStream::new(capacity);
-    let sender_ptr = Box::into_raw(Box::new(sender));
-    (stream, sender_ptr)
-}
-
-/// Run a stream-callback body, swallowing any panic so it cannot unwind across
-/// the `extern "C"` boundary back into Swift (which would be undefined
-/// behavior). These callbacks fire rapidly on every input change.
-fn catch_cb_panic(site: &str, f: impl FnOnce()) {
-    if let Err(payload) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
-        let message = payload
-            .downcast_ref::<&str>()
-            .map(|message| (*message).to_owned())
-            .or_else(|| payload.downcast_ref::<String>().cloned())
-            .unwrap_or_else(|| "non-string panic payload".to_owned());
-        eprintln!("gamecontroller: panic in {site} caught at C ABI boundary: {message}");
-    }
+    let context = CallbackContext::new(sender);
+    // SAFETY: `callback` has the expected C ABI, and the Swift subscriber retains `context` through the RETAIN/RELEASE pair for as long as it can call back.
+    let swift_handle = unsafe {
+        subscribe(
+            callback,
+            context.as_ptr(),
+            CallbackContext::<AsyncStreamSender<T>>::RETAIN,
+            CallbackContext::<AsyncStreamSender<T>>::RELEASE,
+        )
+    };
+    (
+        stream,
+        SubscriptionHandle {
+            swift_handle,
+            context,
+            unsubscribe,
+        },
+    )
 }
 
 /// Future returned by [`start_wireless_controller_discovery`].
@@ -228,9 +260,7 @@ pub struct ControllerConnectionStream {
 }
 
 unsafe extern "C" fn controller_connection_cb(kind: i32, payload: *const c_void, ctx: *mut c_void) {
-    catch_cb_panic("controller_connection_cb", || {
-        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<ControllerConnectionEvent>>() };
+    let push = |sender: &AsyncStreamSender<ControllerConnectionEvent>| {
         let vendor_name = if payload.is_null() {
             None
         } else {
@@ -244,7 +274,9 @@ unsafe extern "C" fn controller_connection_cb(kind: i32, payload: *const c_void,
             vendor_name,
             connected: kind == 0,
         });
-    });
+    };
+    // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
+    let _ = unsafe { CallbackContext::<AsyncStreamSender<ControllerConnectionEvent>>::with(ctx, "controller_connection_cb", push) };
 }
 
 impl ControllerConnectionStream {
@@ -258,18 +290,15 @@ impl ControllerConnectionStream {
     /// Panics if `capacity` is 0.
     #[must_use]
     pub fn subscribe(capacity: usize) -> Self {
-        let (stream, sender_ptr) = make_pair(capacity);
-        // SAFETY: `controller_connection_cb` has the expected C ABI and `sender_ptr` is the non-null pointer returned by `make_pair`.
-        let swift_handle = unsafe {
-            gc_stream_controller_connection_subscribe(controller_connection_cb, sender_ptr.cast())
-        };
+        let (inner, handle) = subscribe_stream(
+            capacity,
+            gc_stream_controller_connection_subscribe,
+            controller_connection_cb,
+            gc_stream_controller_connection_unsubscribe,
+        );
         Self {
-            inner: stream,
-            _handle: SubscriptionHandle {
-                swift_handle,
-                sender_ptr,
-                unsubscribe: gc_stream_controller_connection_unsubscribe,
-            },
+            inner,
+            _handle: handle,
         }
     }
 
@@ -321,9 +350,7 @@ unsafe extern "C" fn gamepad_value_cb(kind: i32, payload: *const c_void, ctx: *m
     if payload.is_null() {
         return;
     }
-    catch_cb_panic("gamepad_value_cb", || {
-        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<GamepadValueEvent>>() };
+    let push = |sender: &AsyncStreamSender<GamepadValueEvent>| {
         // SAFETY: `payload` points to a stack-allocated `ControllerInfoRaw` whose lifetime spans this callback.
         let raw = unsafe { &*payload.cast::<ControllerInfoRaw>() };
         sender.push(GamepadValueEvent {
@@ -355,7 +382,9 @@ unsafe extern "C" fn gamepad_value_cb(kind: i32, payload: *const c_void, ctx: *m
                 right: raw.dpad_right,
             },
         });
-    });
+    };
+    // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
+    let _ = unsafe { CallbackContext::<AsyncStreamSender<GamepadValueEvent>>::with(ctx, "gamepad_value_cb", push) };
 }
 
 impl GamepadValueStream {
@@ -366,17 +395,15 @@ impl GamepadValueStream {
     /// Panics if `capacity` is 0.
     #[must_use]
     pub fn subscribe(capacity: usize) -> Self {
-        let (stream, sender_ptr) = make_pair(capacity);
-        let swift_handle =
-            // SAFETY: `gamepad_value_cb` has the expected C ABI and `sender_ptr` is the non-null pointer returned by `make_pair`.
-            unsafe { gc_stream_gamepad_value_subscribe(gamepad_value_cb, sender_ptr.cast()) };
+        let (inner, handle) = subscribe_stream(
+            capacity,
+            gc_stream_gamepad_value_subscribe,
+            gamepad_value_cb,
+            gc_stream_gamepad_value_unsubscribe,
+        );
         Self {
-            inner: stream,
-            _handle: SubscriptionHandle {
-                swift_handle,
-                sender_ptr,
-                unsubscribe: gc_stream_gamepad_value_unsubscribe,
-            },
+            inner,
+            _handle: handle,
         }
     }
 
@@ -425,9 +452,7 @@ unsafe extern "C" fn keyboard_key_cb(kind: i32, payload: *const c_void, ctx: *mu
     if payload.is_null() {
         return;
     }
-    catch_cb_panic("keyboard_key_cb", || {
-        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<KeyboardKeyEvent>>() };
+    let push = |sender: &AsyncStreamSender<KeyboardKeyEvent>| {
         // SAFETY: `payload` points to a stack-allocated `RawKeyEvent` whose lifetime spans this callback.
         let raw = unsafe { &*payload.cast::<RawKeyEvent>() };
         sender.push(KeyboardKeyEvent {
@@ -435,7 +460,9 @@ unsafe extern "C" fn keyboard_key_cb(kind: i32, payload: *const c_void, ctx: *mu
             pressed: raw.pressed,
             value: raw.value,
         });
-    });
+    };
+    // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
+    let _ = unsafe { CallbackContext::<AsyncStreamSender<KeyboardKeyEvent>>::with(ctx, "keyboard_key_cb", push) };
 }
 
 impl KeyboardKeyStream {
@@ -446,17 +473,15 @@ impl KeyboardKeyStream {
     /// Panics if `capacity` is 0.
     #[must_use]
     pub fn subscribe(capacity: usize) -> Self {
-        let (stream, sender_ptr) = make_pair(capacity);
-        let swift_handle =
-            // SAFETY: `keyboard_key_cb` has the expected C ABI and `sender_ptr` is the non-null pointer returned by `make_pair`.
-            unsafe { gc_stream_keyboard_key_subscribe(keyboard_key_cb, sender_ptr.cast()) };
+        let (inner, handle) = subscribe_stream(
+            capacity,
+            gc_stream_keyboard_key_subscribe,
+            keyboard_key_cb,
+            gc_stream_keyboard_key_unsubscribe,
+        );
         Self {
-            inner: stream,
-            _handle: SubscriptionHandle {
-                swift_handle,
-                sender_ptr,
-                unsubscribe: gc_stream_keyboard_key_unsubscribe,
-            },
+            inner,
+            _handle: handle,
         }
     }
 
@@ -507,9 +532,7 @@ unsafe extern "C" fn mouse_input_cb(kind: i32, payload: *const c_void, ctx: *mut
     if payload.is_null() {
         return;
     }
-    catch_cb_panic("mouse_input_cb", || {
-        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<MouseInputEvent>>() };
+    let push = |sender: &AsyncStreamSender<MouseInputEvent>| {
         // SAFETY: `payload` points to a stack-allocated `RawMouseEvent` whose lifetime spans this callback.
         let raw = unsafe { &*payload.cast::<RawMouseEvent>() };
         let event = match kind {
@@ -532,7 +555,9 @@ unsafe extern "C" fn mouse_input_cb(kind: i32, payload: *const c_void, ctx: *mut
             _ => return,
         };
         sender.push(event);
-    });
+    };
+    // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
+    let _ = unsafe { CallbackContext::<AsyncStreamSender<MouseInputEvent>>::with(ctx, "mouse_input_cb", push) };
 }
 
 impl MouseInputStream {
@@ -543,17 +568,15 @@ impl MouseInputStream {
     /// Panics if `capacity` is 0.
     #[must_use]
     pub fn subscribe(capacity: usize) -> Self {
-        let (stream, sender_ptr) = make_pair(capacity);
-        let swift_handle =
-            // SAFETY: `mouse_input_cb` has the expected C ABI and `sender_ptr` is the non-null pointer returned by `make_pair`.
-            unsafe { gc_stream_mouse_input_subscribe(mouse_input_cb, sender_ptr.cast()) };
+        let (inner, handle) = subscribe_stream(
+            capacity,
+            gc_stream_mouse_input_subscribe,
+            mouse_input_cb,
+            gc_stream_mouse_input_unsubscribe,
+        );
         Self {
-            inner: stream,
-            _handle: SubscriptionHandle {
-                swift_handle,
-                sender_ptr,
-                unsubscribe: gc_stream_mouse_input_unsubscribe,
-            },
+            inner,
+            _handle: handle,
         }
     }
 
@@ -606,9 +629,7 @@ unsafe extern "C" fn motion_cb(kind: i32, payload: *const c_void, ctx: *mut c_vo
     if payload.is_null() {
         return;
     }
-    catch_cb_panic("motion_cb", || {
-        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<MotionEvent>>() };
+    let push = |sender: &AsyncStreamSender<MotionEvent>| {
         // SAFETY: `payload` points to a stack-allocated `RawMotionEvent` whose lifetime spans this callback.
         let raw = unsafe { &*payload.cast::<RawMotionEvent>() };
         sender.push(MotionEvent {
@@ -630,7 +651,9 @@ unsafe extern "C" fn motion_cb(kind: i32, payload: *const c_void, ctx: *mut c_vo
                 raw.rotation_rate_z,
             ),
         });
-    });
+    };
+    // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
+    let _ = unsafe { CallbackContext::<AsyncStreamSender<MotionEvent>>::with(ctx, "motion_cb", push) };
 }
 
 impl MotionStream {
@@ -641,16 +664,15 @@ impl MotionStream {
     /// Panics if `capacity` is 0.
     #[must_use]
     pub fn subscribe(capacity: usize) -> Self {
-        let (stream, sender_ptr) = make_pair(capacity);
-        // SAFETY: `motion_cb` has the expected C ABI and `sender_ptr` is the non-null pointer returned by `make_pair`.
-        let swift_handle = unsafe { gc_stream_motion_subscribe(motion_cb, sender_ptr.cast()) };
+        let (inner, handle) = subscribe_stream(
+            capacity,
+            gc_stream_motion_subscribe,
+            motion_cb,
+            gc_stream_motion_unsubscribe,
+        );
         Self {
-            inner: stream,
-            _handle: SubscriptionHandle {
-                swift_handle,
-                sender_ptr,
-                unsubscribe: gc_stream_motion_unsubscribe,
-            },
+            inner,
+            _handle: handle,
         }
     }
 
@@ -702,9 +724,7 @@ unsafe extern "C" fn micro_gamepad_value_cb(kind: i32, payload: *const c_void, c
     if payload.is_null() {
         return;
     }
-    catch_cb_panic("micro_gamepad_value_cb", || {
-        // SAFETY: `ctx` is the leaked sender pointer from `make_pair` and remains valid until `SubscriptionHandle::drop` runs after unsubscribe returns.
-        let sender = unsafe { &*ctx.cast::<AsyncStreamSender<MicroGamepadValueEvent>>() };
+    let push = |sender: &AsyncStreamSender<MicroGamepadValueEvent>| {
         // SAFETY: `payload` points to a stack-allocated `RawMicroGamepadEvent` whose lifetime spans this callback.
         let raw = unsafe { &*payload.cast::<RawMicroGamepadEvent>() };
         sender.push(MicroGamepadValueEvent {
@@ -713,7 +733,9 @@ unsafe extern "C" fn micro_gamepad_value_cb(kind: i32, payload: *const c_void, c
             dpad_x: raw.dpad_x,
             dpad_y: raw.dpad_y,
         });
-    });
+    };
+    // SAFETY: `ctx` is the subscription's `CallbackContext`; the Swift subscriber holds a reference to it until it is deallocated.
+    let _ = unsafe { CallbackContext::<AsyncStreamSender<MicroGamepadValueEvent>>::with(ctx, "micro_gamepad_value_cb", push) };
 }
 
 impl MicroGamepadValueStream {
@@ -724,17 +746,15 @@ impl MicroGamepadValueStream {
     /// Panics if `capacity` is 0.
     #[must_use]
     pub fn subscribe(capacity: usize) -> Self {
-        let (stream, sender_ptr) = make_pair(capacity);
-        let swift_handle =
-            // SAFETY: `micro_gamepad_value_cb` has the expected C ABI and `sender_ptr` is the non-null pointer returned by `make_pair`.
-            unsafe { gc_stream_micro_gamepad_subscribe(micro_gamepad_value_cb, sender_ptr.cast()) };
+        let (inner, handle) = subscribe_stream(
+            capacity,
+            gc_stream_micro_gamepad_subscribe,
+            micro_gamepad_value_cb,
+            gc_stream_micro_gamepad_unsubscribe,
+        );
         Self {
-            inner: stream,
-            _handle: SubscriptionHandle {
-                swift_handle,
-                sender_ptr,
-                unsubscribe: gc_stream_micro_gamepad_unsubscribe,
-            },
+            inner,
+            _handle: handle,
         }
     }
 
@@ -754,5 +774,79 @@ impl MicroGamepadValueStream {
     #[must_use]
     pub fn buffered_count(&self) -> usize {
         self.inner.buffered_count()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use core::ffi::c_void;
+    use std::sync::Mutex;
+
+    use super::{
+        keyboard_key_cb, subscribe_stream, ContextCallback, KeyboardKeyEvent, RawKeyEvent,
+        StreamCallback,
+    };
+
+    struct FakeSubscriber {
+        context: usize,
+        release: ContextCallback,
+    }
+
+    static FAKE_SUBSCRIBER: Mutex<Option<FakeSubscriber>> = Mutex::new(None);
+
+    unsafe extern "C" fn fake_subscribe(
+        _callback: StreamCallback,
+        context: *mut c_void,
+        retain: ContextCallback,
+        release: ContextCallback,
+    ) -> *mut c_void {
+        unsafe { retain(context) };
+        *FAKE_SUBSCRIBER.lock().unwrap() = Some(FakeSubscriber {
+            context: context as usize,
+            release,
+        });
+        context
+    }
+
+    unsafe extern "C" fn fake_unsubscribe(_handle: *mut c_void) {}
+
+    fn key_event(keycode: i64) -> RawKeyEvent {
+        RawKeyEvent {
+            keycode,
+            pressed: true,
+            value: 1.0,
+        }
+    }
+
+    #[test]
+    fn events_after_drop_are_ignored_while_the_subscriber_keeps_the_sender_alive() {
+        let (stream, handle) = subscribe_stream::<KeyboardKeyEvent>(
+            4,
+            fake_subscribe,
+            keyboard_key_cb,
+            fake_unsubscribe,
+        );
+        let subscriber = FAKE_SUBSCRIBER.lock().unwrap().take().expect("subscribed");
+        let context = subscriber.context as *mut c_void;
+
+        let first = key_event(4);
+        unsafe { keyboard_key_cb(0, (&raw const first).cast(), context) };
+        assert_eq!(
+            stream.try_next(),
+            Some(KeyboardKeyEvent {
+                keycode: 4,
+                pressed: true,
+                value: 1.0,
+            })
+        );
+
+        drop(handle);
+        let late = key_event(5);
+        unsafe { keyboard_key_cb(0, (&raw const late).cast(), context) };
+        assert_eq!(stream.try_next(), None);
+        assert!(!stream.is_closed());
+
+        unsafe { (subscriber.release)(context) };
+        assert!(stream.is_closed());
     }
 }

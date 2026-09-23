@@ -68,6 +68,46 @@ mod async_stream_tests {
     }
 
     #[test]
+    fn streams_of_the_same_kind_can_be_dropped_independently() {
+        let first = GamepadValueStream::subscribe(4);
+        let second = GamepadValueStream::subscribe(4);
+        let first_keys = KeyboardKeyStream::subscribe(4);
+        let second_keys = KeyboardKeyStream::subscribe(4);
+        drop(first);
+        drop(first_keys);
+        wait_briefly();
+        assert_eq!(second.buffered_count(), 0);
+        assert!(second.try_next().is_none());
+        assert_eq!(second_keys.buffered_count(), 0);
+        assert!(second_keys.try_next().is_none());
+    }
+
+    #[test]
+    fn streams_can_be_subscribed_and_dropped_from_many_threads() {
+        let workers = (0..8)
+            .map(|_| {
+                std::thread::spawn(|| {
+                    for _ in 0..100 {
+                        let streams = (
+                            ControllerConnectionStream::subscribe(2),
+                            GamepadValueStream::subscribe(2),
+                            KeyboardKeyStream::subscribe(2),
+                            MouseInputStream::subscribe(2),
+                            MotionStream::subscribe(2),
+                            MicroGamepadValueStream::subscribe(2),
+                        );
+                        assert!(streams.1.try_next().is_none());
+                        drop(streams);
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        for worker in workers {
+            worker.join().expect("stream thread");
+        }
+    }
+
+    #[test]
     fn multiple_streams_can_coexist() {
         let conn = ControllerConnectionStream::subscribe(4);
         let gamepad = GamepadValueStream::subscribe(4);
