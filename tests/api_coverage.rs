@@ -105,22 +105,7 @@ fn aliases() -> BTreeMap<&'static str, Vec<&'static str>> {
         ("initWithRed", vec!["GCColor(red:"]),
         ("objectForKeyedSubscript", vec!["profile[alias]", "[alias]"]),
         ("snapshot", vec!["isSnapshot"]),
-        (
-            "setModeFeedbackWithStartPosition",
-            vec!["gc_dualsense_set_trigger_mode"],
-        ),
-        (
-            "setModeWeaponWithStartPosition",
-            vec!["gc_dualsense_set_trigger_mode"],
-        ),
-        (
-            "setModeVibrationWithStartPosition",
-            vec!["gc_dualsense_set_trigger_mode"],
-        ),
-        (
-            "setModeSlopeFeedbackWithStartPosition",
-            vec!["gc_dualsense_set_trigger_mode"],
-        ),
+        ("setModeSlopeFeedbackWithStartPosition", vec!["setModeSlopeFeedback("]),
         (
             "setModeFeedbackWithResistiveStrengths",
             vec!["setModeFeedback"],

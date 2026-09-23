@@ -721,8 +721,8 @@ pub fn dualsense_trigger_weapon(
     }
 }
 
-/// Apply a vibration mode on a `DualSense` trigger. `frequency` is in
-/// Hz (typically `1.0..=100.0`); `amplitude` is `0.0..=1.0`.
+/// Apply a vibration mode on a `DualSense` trigger. `amplitude` and
+/// `frequency` are normalized `0.0..=1.0`.
 #[must_use]
 pub fn dualsense_trigger_vibration(
     which: DualSenseTrigger,

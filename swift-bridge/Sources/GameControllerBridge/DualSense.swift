@@ -2,12 +2,6 @@ import Foundation
 import GameController
 
 @available(macOS 12.3, *)
-private func dualSenseStepIndex(for position: Float) -> Int {
-    let maxIndex = max(0, GCDualSenseAdaptiveTrigger.discretePositionCount - 1)
-    return Int((Double(clampUnit(position)) * Double(maxIndex)).rounded())
-}
-
-@available(macOS 12.3, *)
 private func makeResistiveStrengths(_ values: [Float]) -> GCDualSenseAdaptiveTrigger.PositionalResistiveStrengths {
     var strengths = GCDualSenseAdaptiveTrigger.PositionalResistiveStrengths()
     strengths.values = (
@@ -71,46 +65,28 @@ public func gc_dualsense_set_trigger_mode(
     case 0:
         trigger.setModeOff()
     case 1:
-        guard #available(macOS 12.3, *) else { return false }
-        let startIndex = dualSenseStepIndex(for: clampedStart)
-        var values = Array(repeating: Float(0), count: 10)
-        for index in startIndex..<values.count {
-            values[index] = clampedStrength
-        }
-        trigger.setModeFeedback(resistiveStrengths: makeResistiveStrengths(values))
+        trigger.setModeFeedbackWithStartPosition(clampedStart, resistiveStrength: clampedStrength)
     case 2:
-        guard #available(macOS 12.3, *), clampedEnd > clampedStart else { return false }
-        let startIndex = dualSenseStepIndex(for: clampedStart)
-        let endIndex = dualSenseStepIndex(for: clampedEnd)
-        var values = Array(repeating: Float(0), count: 10)
-        for index in startIndex...endIndex {
-            values[index] = clampedStrength
-        }
-        trigger.setModeFeedback(resistiveStrengths: makeResistiveStrengths(values))
+        guard clampedEnd > clampedStart else { return false }
+        trigger.setModeWeaponWithStartPosition(
+            clampedStart,
+            endPosition: clampedEnd,
+            resistiveStrength: clampedStrength
+        )
     case 3:
-        guard #available(macOS 12.3, *) else { return false }
-        let startIndex = dualSenseStepIndex(for: clampedStart)
-        var values = Array(repeating: Float(0), count: 10)
-        for index in startIndex..<values.count {
-            values[index] = clampedStrength
-        }
-        trigger.setModeVibration(amplitudes: makeAmplitudes(values), frequency: clampedFrequency)
+        trigger.setModeVibrationWithStartPosition(
+            clampedStart,
+            amplitude: clampedStrength,
+            frequency: clampedFrequency
+        )
     case 4:
-        guard #available(macOS 12.3, *), clampedEnd > clampedStart else { return false }
-        let startIndex = dualSenseStepIndex(for: clampedStart)
-        let endIndex = dualSenseStepIndex(for: clampedEnd)
-        var values = Array(repeating: Float(0), count: 10)
-        if startIndex == endIndex {
-            values[startIndex] = clampedFrequency
-        } else {
-            for position in startIndex...endIndex {
-                let numerator = Double(position - startIndex)
-                let denominator = Double(endIndex - startIndex)
-                let ratio = Float(numerator / denominator)
-                values[position] = clampedStrength + ((clampedFrequency - clampedStrength) * ratio)
-            }
-        }
-        trigger.setModeFeedback(resistiveStrengths: makeResistiveStrengths(values))
+        guard clampedEnd > clampedStart else { return false }
+        trigger.setModeSlopeFeedback(
+            startPosition: clampedStart,
+            endPosition: clampedEnd,
+            startStrength: clampedStrength,
+            endStrength: clampedFrequency
+        )
     default:
         return false
     }
