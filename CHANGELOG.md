@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-23
+
 ### Fixed
 
+- The `06_async_streams` example requires the `async` feature.
 - The Swift bridge now supports macOS 12.0. Slope-feedback triggers return `false` before macOS 12.3.
 - Racing-wheel queries return an empty list before macOS 13.0.
 
