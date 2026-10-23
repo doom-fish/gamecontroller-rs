@@ -71,6 +71,7 @@ fn main() -> Result<(), GameControllerError> {
 - `event_view_controller_snapshot()` for `GCEventViewController` defaults.
 - `first_controller_battery()` / `first_controller_light()` / `first_controller_haptics()` for typed device-side snapshots.
 - `ControllerHandle::all()` / `current()` / `first()` / `first_dualsense()` return handles to specific controllers with `set_light()`, `set_player_index()`, `battery_level()`, `rumble()` and `set_dualsense_trigger()` (a typed `DualSenseTriggerEffect`).
+- `ControllerHandle::extended_gamepad_state()` reads all buttons, triggers, thumbsticks and thumbstick buttons of one controller without JSON. Handles are equal, and hash equally, when they refer to the same controller.
 - `set_first_controller_light_color()` plus `set_first_controller_light()` for `GCColor` / `GCDeviceLight` mutation on the first controller.
 - `rumble_first_controller_with_locality()` plus `DeviceHapticsDetails::supported_locality_constants()` for typed haptics locality coverage.
 - `watch_connections()`, `watch_current_controller()`, `watch_keyboard_connections()`, `watch_mouse_connections()`, `watch_mouse_current()`, `watch_racing_wheel_connections()`, and `watch_controller_customizations()` for notification coverage.

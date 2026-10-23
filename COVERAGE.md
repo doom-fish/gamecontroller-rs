@@ -10,7 +10,7 @@ The ✅ marks and the audit percentages count top-level symbols (classes, protoc
 | `GCControllerElement` | ✅ | `current_controller_elements()` now exposes legacy `GCControllerElement` metadata plus typed system-gesture state for the current controller's visible profile elements. |
 | `GCKeyboard` | ✅ | `keyboard_is_*` polling helpers remain, `keyboard_snapshot()` exposes richer `GCKeyboardInput` / `GCPhysicalInputProfile` data, and `watch_keyboard_connections()` covers keyboard notifications. |
 | `GCMouse` | ✅ | `mouse_is_connected()` / `mouse_button_states()` remain, `mouse_snapshot()` exposes scroll/auxiliary buttons, and dedicated mouse connection/current watchers cover the lifecycle notifications. |
-| `GCExtendedGamepad` | ✅ | Detailed snapshots continue to cover the full extended profile surface. |
+| `GCExtendedGamepad` | ✅ | Detailed snapshots continue to cover the full extended profile surface. `ControllerHandle::extended_gamepad_state()` reads all its element values for one controller without JSON. |
 | `GCMicroGamepad` | ✅ | Detailed snapshots continue to cover the micro profile surface. |
 | `GCDirectionalGamepad` | ✅ | `ControllerDetails::directional_gamepad` now reports the directional-gamepad profile when the connected micro gamepad is a `GCDirectionalGamepad`. |
 | `GCHaptics` / `GCDeviceHaptics` | ✅ | `ControllerHandle::rumble()` plays a locality-aware haptic on a specific controller, `rumble_first_controller()` / `rumble_first_controller_with_locality()` do so on the first one, and typed `DeviceHapticsDetails` snapshots expose supported localities. |

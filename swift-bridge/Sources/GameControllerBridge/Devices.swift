@@ -80,6 +80,41 @@ public func gc_controller_handle_battery_level(_ handle: UnsafeMutableRawPointer
     return battery.batteryLevel
 }
 
+@_cdecl("gc_controller_handle_extended_gamepad_state")
+public func gc_controller_handle_extended_gamepad_state(
+    _ handle: UnsafeMutableRawPointer?,
+    _ out: UnsafeMutablePointer<Float>?
+) -> Bool {
+    guard let out, let gamepad = controllerFromHandle(handle)?.extendedGamepad else { return false }
+    let values: [Float] = [
+        gamepad.buttonA.value,
+        gamepad.buttonB.value,
+        gamepad.buttonX.value,
+        gamepad.buttonY.value,
+        gamepad.buttonMenu.value,
+        gamepad.buttonOptions?.value ?? 0,
+        gamepad.buttonHome?.value ?? 0,
+        gamepad.leftShoulder.value,
+        gamepad.rightShoulder.value,
+        gamepad.leftTrigger.value,
+        gamepad.rightTrigger.value,
+        gamepad.leftThumbstick.xAxis.value,
+        gamepad.leftThumbstick.yAxis.value,
+        gamepad.rightThumbstick.xAxis.value,
+        gamepad.rightThumbstick.yAxis.value,
+        gamepad.dpad.up.value,
+        gamepad.dpad.down.value,
+        gamepad.dpad.left.value,
+        gamepad.dpad.right.value,
+        gamepad.leftThumbstickButton?.value ?? 0,
+        gamepad.rightThumbstickButton?.value ?? 0,
+    ]
+    for (index, value) in values.enumerated() {
+        out[index] = value
+    }
+    return true
+}
+
 @_cdecl("gc_controller_handle_is_dualsense")
 public func gc_controller_handle_is_dualsense(_ handle: UnsafeMutableRawPointer?) -> Bool {
     controllerFromHandle(handle)?.extendedGamepad is GCDualSenseGamepad

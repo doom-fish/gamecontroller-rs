@@ -76,6 +76,9 @@ name = "05_input_surface"
 
 [[example]]
 name = "06_async_streams"
+
+[[example]]
+name = "07_handle_state"
 required-features = ["async"]
 
 [profile.release]

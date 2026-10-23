@@ -5,6 +5,15 @@ All notable changes to `gamecontroller` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `ControllerHandle::extended_gamepad_state` reads every element of the extended gamepad of one controller: the face, menu, options and home buttons, the shoulders, the triggers, the thumbsticks, the thumbstick buttons and the directional pad. It does not encode JSON, thus it is fast enough to call for each frame.
+- `ExtendedGamepadState`, the value of that function.
+- `ControllerHandle` implements `Hash`, thus a handle can be a key in a map while the controller is connected.
+- The `07_handle_state` example.
+
 ## [0.9.0] - 2026-09-24
 
 ### Security

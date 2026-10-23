@@ -246,6 +246,7 @@ extern "C" {
     ) -> bool;
     pub fn gc_controller_handle_battery_level(handle: *mut c_void) -> f32;
     pub fn gc_controller_handle_is_dualsense(handle: *mut c_void) -> bool;
+    pub fn gc_controller_handle_extended_gamepad_state(handle: *mut c_void, out: *mut f32) -> bool;
     pub fn gc_controller_handle_rumble(
         handle: *mut c_void,
         locality: *const c_char,

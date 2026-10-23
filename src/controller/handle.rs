@@ -1,9 +1,10 @@
 use core::ffi::c_void;
 use core::fmt;
+use core::hash::{Hash, Hasher};
 use core::ptr::{self, NonNull};
 use std::ffi::CString;
 
-use super::{Color, DualSenseTrigger, GCHapticsLocality};
+use super::{Buttons, Color, Dpad, DualSenseTrigger, GCHapticsLocality, Thumbsticks, Triggers};
 use super::{
     GCDualSenseAdaptiveTriggerPositionalAmplitudes,
     GCDualSenseAdaptiveTriggerPositionalResistiveStrengths,
@@ -16,6 +17,16 @@ pub struct ControllerHandle {
 
 unsafe impl Send for ControllerHandle {}
 unsafe impl Sync for ControllerHandle {}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ExtendedGamepadState {
+    pub buttons: Buttons,
+    pub triggers: Triggers,
+    pub thumbsticks: Thumbsticks,
+    pub dpad: Dpad,
+    pub left_thumbstick_button: f32,
+    pub right_thumbstick_button: f32,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DualSenseTriggerEffect {
@@ -122,6 +133,45 @@ impl ControllerHandle {
     #[must_use]
     pub fn first_dualsense() -> Option<Self> {
         Self::all().into_iter().find(Self::is_dualsense)
+    }
+
+    #[must_use]
+    pub fn extended_gamepad_state(&self) -> Option<ExtendedGamepadState> {
+        let mut values = [0.0_f32; 21];
+        if !unsafe { ffi::gc_controller_handle_extended_gamepad_state(self.as_ptr(), values.as_mut_ptr()) } {
+            return None;
+        }
+        Some(ExtendedGamepadState {
+            buttons: Buttons {
+                a: values[0],
+                b: values[1],
+                x: values[2],
+                y: values[3],
+                menu: values[4],
+                options: values[5],
+                home: values[6],
+            },
+            triggers: Triggers {
+                left_shoulder: values[7],
+                right_shoulder: values[8],
+                left_trigger: values[9],
+                right_trigger: values[10],
+            },
+            thumbsticks: Thumbsticks {
+                left_x: values[11],
+                left_y: values[12],
+                right_x: values[13],
+                right_y: values[14],
+            },
+            dpad: Dpad {
+                up: values[15],
+                down: values[16],
+                left: values[17],
+                right: values[18],
+            },
+            left_thumbstick_button: values[19],
+            right_thumbstick_button: values[20],
+        })
     }
 
     #[must_use]
@@ -256,6 +306,12 @@ impl PartialEq for ControllerHandle {
 }
 
 impl Eq for ControllerHandle {}
+
+impl Hash for ControllerHandle {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.raw.hash(state);
+    }
+}
 
 impl fmt::Debug for ControllerHandle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

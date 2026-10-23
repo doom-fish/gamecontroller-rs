@@ -18,7 +18,7 @@ use crate::ffi;
 pub use constants::*;
 /// Re-exports the `GameController` framework surface for this item.
 pub use details::*;
-pub use handle::{ControllerHandle, DualSenseTriggerEffect};
+pub use handle::{ControllerHandle, DualSenseTriggerEffect, ExtendedGamepadState};
 
 /// A point-in-time snapshot of one connected `GCController`.
 #[derive(Debug, Clone, PartialEq)]
