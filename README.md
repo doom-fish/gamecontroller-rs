@@ -2,7 +2,7 @@
 
 Safe Rust bindings for Apple's [GameController](https://developer.apple.com/documentation/gamecontroller) framework on macOS.
 
-> **Status:** `0.9.0` fixes use-after-free and data-race bugs in the watchers and async streams, lets several streams share one controller handler, adds per-controller `ControllerHandle`s for light, player index, rumble and `DualSense` triggers, and adds the macOS 26.4 side-button input names. The coverage audit counts top-level symbols, not methods (see [`COVERAGE.md`](COVERAGE.md)).
+> **Status:** `0.9.1` adds `ControllerHandle::extended_gamepad_state`. `0.9.0` fixes use-after-free and data-race bugs in the watchers and async streams, lets several streams share one controller handler, adds per-controller `ControllerHandle`s for light, player index, rumble and `DualSense` triggers, and adds the macOS 26.4 side-button input names. The coverage audit counts top-level symbols, not methods (see [`COVERAGE.md`](COVERAGE.md)).
 
 ## Installation
 
