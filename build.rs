@@ -51,6 +51,7 @@ fn main() {
         if o.status.success() {
             let xcode = String::from_utf8_lossy(&o.stdout).trim().to_string();
             println!("cargo:rustc-link-arg=-Wl,-rpath,{xcode}/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx");
+            println!("cargo:rustc-link-search=native={xcode}/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx");
         }
     }
 }

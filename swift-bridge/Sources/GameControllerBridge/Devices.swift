@@ -308,17 +308,16 @@ public func gc_event_view_controller_snapshot_json() -> UnsafeMutablePointer<CCh
 
 @_cdecl("gc_racing_wheels_json")
 public func gc_racing_wheels_json() -> UnsafeMutablePointer<CChar>? {
-    if #unavailable(macOS 13.0) {
-        return jsonString([RacingWheelDetailsPayload]())
-    }
-
-    let wheels = Array(GCRacingWheel.connectedRacingWheels).sorted {
-        let lhsVendor = $0.vendorName ?? ""
-        let rhsVendor = $1.vendorName ?? ""
-        if lhsVendor != rhsVendor {
-            return lhsVendor < rhsVendor
+    if #available(macOS 13.0, *) {
+        let wheels = Array(GCRacingWheel.connectedRacingWheels).sorted {
+            let lhsVendor = $0.vendorName ?? ""
+            let rhsVendor = $1.vendorName ?? ""
+            if lhsVendor != rhsVendor {
+                return lhsVendor < rhsVendor
+            }
+            return $0.productCategory < $1.productCategory
         }
-        return $0.productCategory < $1.productCategory
+        return jsonString(wheels.map(racingWheelPayload))
     }
-    return jsonString(wheels.map(racingWheelPayload))
+    return jsonString([RacingWheelDetailsPayload]())
 }

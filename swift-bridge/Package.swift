@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "GameControllerBridge",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v12)],
     products: [
         .library(name: "GameControllerBridge", type: .static, targets: ["GameControllerBridge"]),
     ],

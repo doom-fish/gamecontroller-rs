@@ -70,7 +70,7 @@ public func gc_controller_handle_dualsense_set_trigger_mode(
             frequency: clampedFrequency
         )
     case 4:
-        guard clampedEnd > clampedStart else { return false }
+        guard #available(macOS 12.3, *), clampedEnd > clampedStart else { return false }
         trigger.setModeSlopeFeedback(
             startPosition: clampedStart,
             endPosition: clampedEnd,

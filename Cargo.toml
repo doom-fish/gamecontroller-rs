@@ -76,6 +76,7 @@ name = "05_input_surface"
 
 [[example]]
 name = "06_async_streams"
+required-features = ["async"]
 
 [[example]]
 name = "07_handle_state"

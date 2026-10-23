@@ -13,7 +13,7 @@ gamecontroller = "0.9"
 
 ## Requirements
 
-- macOS 13 or newer (the Swift bridge's deployment target).
+- macOS 12.0 or newer. Slope-feedback triggers report unavailable before macOS 12.3. Racing-wheel queries return an empty list before macOS 13.0.
 - `input_names::LEFT_SIDE_BUTTON` / `RIGHT_SIDE_BUTTON` are reported by macOS 26.4 and newer; `input_names::side_buttons_available()` checks the running system.
 - Connection notifications, discovery completion and controller input handlers run on the main queue, so the app needs a running main run loop to receive them.
 

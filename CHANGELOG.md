@@ -5,6 +5,13 @@ All notable changes to `gamecontroller` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The Swift bridge now supports macOS 12.0. Slope-feedback triggers return `false` before macOS 12.3.
+- Racing-wheel queries return an empty list before macOS 13.0.
+
 ## [0.9.1] - 2026-10-23
 
 ### Added
