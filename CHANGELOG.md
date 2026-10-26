@@ -269,6 +269,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded the API-coverage harness from a single `GCController` check to the main controller/profile families (`GCController`, `GCPhysicalInputProfile`, `GCGamepad`, `GCMicroGamepad`, `GCExtendedGamepad`, `GCDualSenseGamepad`, `GCDualSenseAdaptiveTrigger`).
 - Crate packaging now includes `examples/` and `tests/`.
 
+## [0.5.0] - 2026-05-16
+
+### Added
+
+- Add DualSense adaptive trigger support.
+
+## [0.4.0] - 2026-05-16
+
+### Added
+
+- Add `GCMouse`, `GCKeyboard` and iteration over multiple controllers.
+
+## [0.3.0] - 2026-05-16
+
+### Added
+
+- Add light-bar controls, player indices, battery state and simple haptics.
+
+## [0.2.0] - 2026-05-16
+
+### Added
+
+- Add motion, battery, haptics, light and connection callbacks.
+
 ## [0.1.0] - Initial release
 
 ### Added
