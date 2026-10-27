@@ -8,6 +8,7 @@ let package = Package(
         .library(name: "GameControllerBridge", type: .static, targets: ["GameControllerBridge"]),
     ],
     targets: [
-        .target(name: "GameControllerBridge", path: "Sources/GameControllerBridge"),
+        .target(name: "GameControllerABI", path: "Sources/GameControllerABI", publicHeadersPath: "include"),
+        .target(name: "GameControllerBridge", dependencies: ["GameControllerABI"], path: "Sources/GameControllerBridge"),
     ]
 )

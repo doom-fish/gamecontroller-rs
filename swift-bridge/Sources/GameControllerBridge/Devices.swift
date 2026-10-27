@@ -1,3 +1,4 @@
+import GameControllerABI
 import AppKit
 import Foundation
 import GameController
@@ -282,32 +283,37 @@ public func gc_keyboard_is_key_pressed(_ keycode: Int) -> Bool {
     return input.button(forKeyCode: code)?.isPressed ?? false
 }
 
-@_cdecl("gc_keyboard_snapshot_json")
-public func gc_keyboard_snapshot_json() -> UnsafeMutablePointer<CChar>? {
+@_cdecl("gc_keyboard_snapshot")
+public func gc_keyboard_snapshot(_ out: UnsafeMutablePointer<GCSnapshotRaw>) {
     if #unavailable(macOS 11.0) {
-        return jsonString(Optional<KeyboardSnapshotPayload>.none)
+        out.pointee = gcSnapshot((Optional<KeyboardSnapshotPayload>.none).map { [$0] } ?? [])
+    return
     }
-    return jsonString(GCKeyboard.coalesced.flatMap(keyboardSnapshotPayload))
+    out.pointee = gcSnapshot((GCKeyboard.coalesced.flatMap(keyboardSnapshotPayload)).map { [$0] } ?? [])
+    return
 }
 
-@_cdecl("gc_mouse_snapshot_json")
-public func gc_mouse_snapshot_json() -> UnsafeMutablePointer<CChar>? {
+@_cdecl("gc_mouse_snapshot")
+public func gc_mouse_snapshot(_ out: UnsafeMutablePointer<GCSnapshotRaw>) {
     if #unavailable(macOS 11.0) {
-        return jsonString(Optional<MouseSnapshotPayload>.none)
+        out.pointee = gcSnapshot((Optional<MouseSnapshotPayload>.none).map { [$0] } ?? [])
+    return
     }
-    return jsonString(GCMouse.current.flatMap(mouseSnapshotPayload))
+    out.pointee = gcSnapshot((GCMouse.current.flatMap(mouseSnapshotPayload)).map { [$0] } ?? [])
+    return
 }
 
-@_cdecl("gc_event_view_controller_snapshot_json")
-public func gc_event_view_controller_snapshot_json() -> UnsafeMutablePointer<CChar>? {
+@_cdecl("gc_event_view_controller_snapshot")
+public func gc_event_view_controller_snapshot(_ out: UnsafeMutablePointer<GCSnapshotRaw>) {
     let controller = GCEventViewController()
     let enabled = controller.controllerUserInteractionEnabled
     controller.controllerUserInteractionEnabled = enabled
-    return jsonString(EventViewControllerPayload(controllerUserInteractionEnabled: enabled))
+    out.pointee = gcSnapshot([EventViewControllerPayload(controllerUserInteractionEnabled: enabled)])
+    return
 }
 
-@_cdecl("gc_racing_wheels_json")
-public func gc_racing_wheels_json() -> UnsafeMutablePointer<CChar>? {
+@_cdecl("gc_racing_wheels")
+public func gc_racing_wheels(_ out: UnsafeMutablePointer<GCSnapshotRaw>) {
     if #available(macOS 13.0, *) {
         let wheels = Array(GCRacingWheel.connectedRacingWheels).sorted {
             let lhsVendor = $0.vendorName ?? ""
@@ -317,7 +323,9 @@ public func gc_racing_wheels_json() -> UnsafeMutablePointer<CChar>? {
             }
             return $0.productCategory < $1.productCategory
         }
-        return jsonString(wheels.map(racingWheelPayload))
+        out.pointee = gcSnapshot(wheels.map(racingWheelPayload))
+    return
     }
-    return jsonString([RacingWheelDetailsPayload]())
+    out.pointee = gcSnapshot([RacingWheelDetailsPayload]())
+    return
 }

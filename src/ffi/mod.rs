@@ -4,6 +4,8 @@
 
 use core::ffi::{c_char, c_void};
 
+pub(crate) mod snapshots;
+
 /// Mirrors the `GameController` framework counterpart for `DiscoveryCallback`.
 pub type DiscoveryCallback = unsafe extern "C" fn(user_info: *mut c_void);
 /// Mirrors the `GameController` framework counterpart for `NotificationCallback`.
@@ -106,17 +108,6 @@ pub struct ExtraInfoRaw {
     pub user_acceleration_z: f64,
 }
 
-// MARK: - ABI Layout Assertions
-//
-// `ControllerInfoRaw` and `ExtraInfoRaw` are read directly from pointers handed
-// across the Rust <-> Swift `@_cdecl` FFI boundary (see `controller::mod` and
-// `async_api`). Their Swift counterparts are `GCControllerInfoRaw` /
-// `GCExtraInfoRaw` in `swift-bridge/Sources/GameControllerBridge/Core.swift`.
-//
-// These compile-time assertions pin the exact size/alignment shared with Swift:
-// any change to a field type, field order, or padding fails the build instead of
-// silently corrupting marshalled data at runtime. Only `size_of`/`align_of` are
-// asserted here. If you change the layout you MUST mirror it in Core.swift.
 use core::mem::{align_of, size_of};
 
 const _: () = assert!(size_of::<ControllerInfoRaw>() == 104);
@@ -151,16 +142,11 @@ extern "C" {
     pub fn gc_connected_controllers(out_array: *mut *mut c_void, out_count: *mut usize) -> i32;
 /// Calls the `GameController` framework counterpart for `gc_controller_infos_free`.
     pub fn gc_controller_infos_free(array: *mut c_void, count: usize);
-/// Calls the `GameController` framework counterpart for `gc_controller_details_json`.
-    pub fn gc_controller_details_json(current_only: bool) -> *mut c_char;
-/// Calls the `GameController` framework counterpart for `gc_current_controller_input_source_json`.
-    pub fn gc_current_controller_input_source_json() -> *mut c_char;
-/// Calls the `GameController` framework counterpart for `gc_connected_devices_json`.
-    pub fn gc_connected_devices_json() -> *mut c_char;
-/// Calls the `GameController` framework counterpart for `gc_current_controller_elements_json`.
-    pub fn gc_current_controller_elements_json() -> *mut c_char;
-/// Calls the `GameController` framework counterpart for `gc_current_controller_physical_input_elements_json`.
-    pub fn gc_current_controller_physical_input_elements_json() -> *mut c_char;
+    pub(crate) fn gc_controller_details(current_only: bool, out: *mut snapshots::GCSnapshotRaw);
+    pub(crate) fn gc_current_controller_input_source(out: *mut snapshots::GCSnapshotRaw);
+    pub(crate) fn gc_connected_devices(out: *mut snapshots::GCSnapshotRaw);
+    pub(crate) fn gc_current_controller_elements(out: *mut snapshots::GCSnapshotRaw);
+    pub(crate) fn gc_current_controller_physical_input_elements(out: *mut snapshots::GCSnapshotRaw);
 
 /// Calls the `GameController` framework counterpart for `gc_first_controller_extra`.
     pub fn gc_first_controller_extra(out_info: *mut ExtraInfoRaw) -> bool;
@@ -269,14 +255,10 @@ extern "C" {
     pub fn gc_keyboard_any_key_pressed() -> bool;
 /// Calls the `GameController` framework counterpart for `gc_keyboard_is_key_pressed`.
     pub fn gc_keyboard_is_key_pressed(keycode: isize) -> bool;
-/// Calls the `GameController` framework counterpart for `gc_keyboard_snapshot_json`.
-    pub fn gc_keyboard_snapshot_json() -> *mut c_char;
-/// Calls the `GameController` framework counterpart for `gc_mouse_snapshot_json`.
-    pub fn gc_mouse_snapshot_json() -> *mut c_char;
-/// Calls the `GameController` framework counterpart for `gc_event_view_controller_snapshot_json`.
-    pub fn gc_event_view_controller_snapshot_json() -> *mut c_char;
-/// Calls the `GameController` framework counterpart for `gc_racing_wheels_json`.
-    pub fn gc_racing_wheels_json() -> *mut c_char;
+    pub(crate) fn gc_keyboard_snapshot(out: *mut snapshots::GCSnapshotRaw);
+    pub(crate) fn gc_mouse_snapshot(out: *mut snapshots::GCSnapshotRaw);
+    pub(crate) fn gc_event_view_controller_snapshot(out: *mut snapshots::GCSnapshotRaw);
+    pub(crate) fn gc_racing_wheels(out: *mut snapshots::GCSnapshotRaw);
 
 /// Calls the `GameController` framework counterpart for `gc_all_controllers_extras`.
     pub fn gc_all_controllers_extras(out_buf: *mut ExtraInfoRaw, max: usize) -> usize;

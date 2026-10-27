@@ -10,7 +10,6 @@ use std::sync::Mutex;
 
 use doom_fish_utils::callback_context::CallbackContext;
 use doom_fish_utils::panic_safe::catch_user_panic;
-use serde::{Deserialize, Serialize};
 
 use crate::ffi;
 
@@ -168,8 +167,7 @@ fn take_string(p: *mut core::ffi::c_char) -> String {
 // ---- v0.2: motion / battery / haptics / light snapshots ----
 
 /// Battery charging state mirroring `GCDeviceBattery.batteryState`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum BatteryState {
 /// Mirrors the `GameController` framework case `Unknown`.

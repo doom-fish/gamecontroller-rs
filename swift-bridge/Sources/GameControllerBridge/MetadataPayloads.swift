@@ -2,25 +2,25 @@ import Dispatch
 import Foundation
 import GameController
 
-struct Point2Payload: Codable {
+struct Point2Payload {
     let x: Float
     let y: Float
 }
 
-struct DeviceDetailsPayload: Codable {
+struct DeviceDetailsPayload {
     let vendorName: String
     let productCategory: String
     let handlerQueueLabel: String
 }
 
-struct ConnectedDevicesSnapshotPayload: Codable {
+struct ConnectedDevicesSnapshotPayload {
     let controllers: [DeviceDetailsPayload]
     let keyboard: DeviceDetailsPayload?
     let mouse: DeviceDetailsPayload?
     let racingWheels: [DeviceDetailsPayload]
 }
 
-struct ControllerElementDetailsPayload: Codable {
+struct ControllerElementDetailsPayload {
     let analog: Bool
     let collectionPath: [String]
     let isBoundToSystemGesture: Bool
@@ -31,25 +31,25 @@ struct ControllerElementDetailsPayload: Codable {
     let unmappedLocalizedName: String?
 }
 
-struct NamedControllerElementDetailsPayload: Codable {
+struct NamedControllerElementDetailsPayload {
     let name: String
     let value: ControllerElementDetailsPayload
 }
 
-struct PhysicalInputSourceDetailsPayload: Codable {
+struct PhysicalInputSourceDetailsPayload {
     let elementAliases: [String]
     let elementLocalizedName: String?
     let sfSymbolsName: String?
     let direction: UInt8
 }
 
-struct PhysicalInputExtentsDetailsPayload: Codable {
+struct PhysicalInputExtentsDetailsPayload {
     let scaledValue: Double
     let minimumValue: Double
     let maximumValue: Double
 }
 
-struct LinearInputDetailsPayload: Codable {
+struct LinearInputDetailsPayload {
     let value: Float
     let analog: Bool
     let canWrap: Bool
@@ -59,21 +59,21 @@ struct LinearInputDetailsPayload: Codable {
     let sources: [PhysicalInputSourceDetailsPayload]
 }
 
-struct PressedStateInputDetailsPayload: Codable {
+struct PressedStateInputDetailsPayload {
     let pressed: Bool
     let lastPressedStateTimestamp: Double
     let lastPressedStateLatency: Double
     let sources: [PhysicalInputSourceDetailsPayload]
 }
 
-struct TouchedStateInputDetailsPayload: Codable {
+struct TouchedStateInputDetailsPayload {
     let touched: Bool
     let lastTouchedStateTimestamp: Double
     let lastTouchedStateLatency: Double
     let sources: [PhysicalInputSourceDetailsPayload]
 }
 
-struct RelativeInputDetailsPayload: Codable {
+struct RelativeInputDetailsPayload {
     let delta: Float
     let analog: Bool
     let lastDeltaTimestamp: Double
@@ -81,7 +81,7 @@ struct RelativeInputDetailsPayload: Codable {
     let sources: [PhysicalInputSourceDetailsPayload]
 }
 
-struct AxisInputDetailsPayload: Codable {
+struct AxisInputDetailsPayload {
     let value: Float
     let analog: Bool
     let canWrap: Bool
@@ -90,7 +90,7 @@ struct AxisInputDetailsPayload: Codable {
     let sources: [PhysicalInputSourceDetailsPayload]
 }
 
-struct Axis2DInputDetailsPayload: Codable {
+struct Axis2DInputDetailsPayload {
     let value: Point2Payload
     let analog: Bool
     let canWrap: Bool
@@ -99,7 +99,7 @@ struct Axis2DInputDetailsPayload: Codable {
     let sources: [PhysicalInputSourceDetailsPayload]
 }
 
-struct SwitchPositionInputDetailsPayload: Codable {
+struct SwitchPositionInputDetailsPayload {
     let position: Int32
     let positionLowerBound: Int32
     let positionCount: Int32
@@ -108,12 +108,12 @@ struct SwitchPositionInputDetailsPayload: Codable {
     let sources: [PhysicalInputSourceDetailsPayload]
 }
 
-struct LinearPressedInputDetailsPayload: Codable {
+struct LinearPressedInputDetailsPayload {
     let linearInput: LinearInputDetailsPayload
     let pressedState: PressedStateInputDetailsPayload
 }
 
-struct ButtonElementDetailsPayload: Codable {
+struct ButtonElementDetailsPayload {
     let metadata: InputElementMetadataPayload
     let linearInput: LinearInputDetailsPayload
     let pressedState: PressedStateInputDetailsPayload
@@ -121,18 +121,18 @@ struct ButtonElementDetailsPayload: Codable {
     let forceInput: LinearInputDetailsPayload?
 }
 
-struct AxisElementDetailsPayload: Codable {
+struct AxisElementDetailsPayload {
     let metadata: InputElementMetadataPayload
     let absoluteInput: AxisInputDetailsPayload?
     let relativeInput: RelativeInputDetailsPayload
 }
 
-struct SwitchElementDetailsPayload: Codable {
+struct SwitchElementDetailsPayload {
     let metadata: InputElementMetadataPayload
     let positionInput: SwitchPositionInputDetailsPayload
 }
 
-struct DirectionPadElementDetailsPayload: Codable {
+struct DirectionPadElementDetailsPayload {
     let metadata: InputElementMetadataPayload
     let xyAxes: Axis2DInputDetailsPayload?
     let xAxis: AxisInputDetailsPayload
@@ -143,7 +143,7 @@ struct DirectionPadElementDetailsPayload: Codable {
     let right: LinearPressedInputDetailsPayload
 }
 
-struct PhysicalInputElementSnapshotPayload: Codable {
+struct PhysicalInputElementSnapshotPayload {
     let buttons: [ButtonElementDetailsPayload]
     let axes: [AxisElementDetailsPayload]
     let switches: [SwitchElementDetailsPayload]

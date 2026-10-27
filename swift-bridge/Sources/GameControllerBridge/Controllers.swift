@@ -1,3 +1,4 @@
+import GameControllerABI
 import Foundation
 import GameController
 
@@ -184,8 +185,8 @@ public func gc_all_controllers_extras(_ outBuffer: UnsafeMutableRawPointer, _ ma
     return count
 }
 
-@_cdecl("gc_controller_details_json")
-public func gc_controller_details_json(_ currentOnly: Bool) -> UnsafeMutablePointer<CChar>? {
+@_cdecl("gc_controller_details")
+public func gc_controller_details(_ currentOnly: Bool, _ out: UnsafeMutablePointer<GCSnapshotRaw>) {
     let controllers: [GCController]
     if currentOnly {
         if #available(macOS 11.0, *), let current = GCController.current {
@@ -196,13 +197,16 @@ public func gc_controller_details_json(_ currentOnly: Bool) -> UnsafeMutablePoin
     } else {
         controllers = GCController.controllers()
     }
-    return jsonString(controllers.map(controllerDetailsPayload))
+    out.pointee = gcSnapshot(controllers.map(controllerDetailsPayload))
+    return
 }
 
-@_cdecl("gc_current_controller_input_source_json")
-public func gc_current_controller_input_source_json() -> UnsafeMutablePointer<CChar>? {
+@_cdecl("gc_current_controller_input_source")
+public func gc_current_controller_input_source(_ out: UnsafeMutablePointer<GCSnapshotRaw>) {
     if #available(macOS 14.0, *), let current = GCController.current {
-        return jsonString(Optional(controllerLiveInputSourcePayload(current.input)))
+        out.pointee = gcSnapshot((Optional(controllerLiveInputSourcePayload(current.input))).map { [$0] } ?? [])
+    return
     }
-    return jsonString(Optional<DevicePhysicalInputSourceDetailsPayload>.none)
+    out.pointee = gcSnapshot((Optional<DevicePhysicalInputSourceDetailsPayload>.none).map { [$0] } ?? [])
+    return
 }

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-27
+
+### Changed
+
+- Replace all nine JSON bridge functions with binary C records and explicit field maps.
+- Remove the serialization dependencies and derives.
+- Import the C header in Swift for snapshots and existing input-event records.
+- Replace the raw JSON functions and the JSON error variant. The safe snapshot and controller handle APIs stay the same.
+
 ## [0.9.3] - 2026-10-26
 
 ### Fixed

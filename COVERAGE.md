@@ -1,8 +1,15 @@
-# GameController v0.9.0 coverage sweep
+# GameController v0.10.0 coverage
+
+Version 0.10.0 replaces all nine JSON bridge functions with binary C records.
+The Swift bridge imports the C header, and the Rust bridge maps each field explicitly.
+The framework coverage does not change.
 
 This sweep audited the requested GameController families against the macOS 26.5 SDK headers and the Rust/Swift surface shipped by this crate.
 
-The ✅ marks and the audit percentages count top-level symbols (classes, protocols, constants, enums) that have a Rust counterpart, mostly read-only JSON snapshots. They do not mean every method or setter is wrapped; the 🟡 rows and the list at the end name the known gaps. The raw `ffi` module is not counted as safe coverage.
+The audit counts top-level symbols that have a Rust counterpart, mostly read-only snapshots.
+It does not count every method or setter.
+The rows and the final list identify the known gaps.
+The audit does not count the raw `ffi` module as safe coverage.
 
 | Family | Status | Notes |
 | --- | --- | --- |
@@ -15,7 +22,7 @@ The ✅ marks and the audit percentages count top-level symbols (classes, protoc
 | `GCDirectionalGamepad` | ✅ | `ControllerDetails::directional_gamepad` now reports the directional-gamepad profile when the connected micro gamepad is a `GCDirectionalGamepad`. |
 | `GCHaptics` / `GCDeviceHaptics` | ✅ | `ControllerHandle::rumble()` plays a locality-aware haptic on a specific controller, `rumble_first_controller()` / `rumble_first_controller_with_locality()` do so on the first one, and typed `DeviceHapticsDetails` snapshots expose supported localities. |
 | `GCMotion` | ✅ | Motion snapshots remain available both in `ControllerExtras` and `ControllerDetails`, and `Quaternion::to_euler_angles()` exposes the legacy Euler-angle struct when needed. |
-| `GCPhysicalInputProfile` | ✅ | Rich JSON-backed `PhysicalInputProfileDetails` coverage remains in controller, keyboard, and mouse snapshots, and `current_controller_physical_input_elements()` now exposes generic physical-input/source/extents metadata. |
+| `GCPhysicalInputProfile` | ✅ | Binary `PhysicalInputProfileDetails` records cover controller, keyboard, and mouse snapshots. `current_controller_physical_input_elements()` includes source and extents metadata. |
 | `GCDevice` | ✅ | `connected_devices_snapshot()` exposes generic `GCDevice` vendor/category/handler-queue metadata across controllers, keyboard, mouse, and racing wheels. |
 | `GCRacingWheel` | 🟡 | `connected_racing_wheels()` exposes metadata and captured wheel input when the device is already acquired. Exclusive acquire/relinquish APIs are intentionally left out of safe Rust because they require retained handles / ownership beyond the crate's snapshot-first design. |
 | `GCDualSenseAdaptiveTrigger` | ✅ | `ControllerHandle::set_dualsense_trigger()` and the `dualsense_trigger_*` helpers call Apple's off, feedback, weapon, vibration and slope modes and the positional strength/amplitude modes; detailed snapshots report adaptive-trigger state. |

@@ -4,17 +4,17 @@ import GameController
 import Foundation
 import GameController
 
-struct ButtonInputStatePayload: Codable {
+struct ButtonInputStatePayload {
     let value: Float
     let pressed: Bool
     let touched: Bool
 }
 
-struct AxisInputStatePayload: Codable {
+struct AxisInputStatePayload {
     let value: Float
 }
 
-struct DirectionPadInputStatePayload: Codable {
+struct DirectionPadInputStatePayload {
     let x: Float
     let y: Float
     let up: ButtonInputStatePayload
@@ -23,14 +23,14 @@ struct DirectionPadInputStatePayload: Codable {
     let right: ButtonInputStatePayload
 }
 
-struct TouchpadDetailsPayload: Codable {
+struct TouchpadDetailsPayload {
     let button: ButtonInputStatePayload
     let touchSurface: DirectionPadInputStatePayload
     let touchState: String
     let reportsAbsoluteTouchSurfaceValues: Bool
 }
 
-struct GamepadDetailsPayload: Codable {
+struct GamepadDetailsPayload {
     let dpad: DirectionPadInputStatePayload
     let buttonA: ButtonInputStatePayload
     let buttonB: ButtonInputStatePayload
@@ -40,7 +40,7 @@ struct GamepadDetailsPayload: Codable {
     let rightShoulder: ButtonInputStatePayload
 }
 
-struct MicroGamepadDetailsPayload: Codable {
+struct MicroGamepadDetailsPayload {
     let dpad: DirectionPadInputStatePayload
     let buttonA: ButtonInputStatePayload
     let buttonX: ButtonInputStatePayload
@@ -49,7 +49,7 @@ struct MicroGamepadDetailsPayload: Codable {
     let allowsRotation: Bool
 }
 
-struct DirectionalGamepadDetailsPayload: Codable {
+struct DirectionalGamepadDetailsPayload {
     let dpad: DirectionPadInputStatePayload
     let buttonA: ButtonInputStatePayload
     let buttonX: ButtonInputStatePayload
@@ -58,7 +58,7 @@ struct DirectionalGamepadDetailsPayload: Codable {
     let allowsRotation: Bool
 }
 
-struct ExtendedGamepadDetailsPayload: Codable {
+struct ExtendedGamepadDetailsPayload {
     let dpad: DirectionPadInputStatePayload
     let buttonA: ButtonInputStatePayload
     let buttonB: ButtonInputStatePayload
@@ -77,13 +77,13 @@ struct ExtendedGamepadDetailsPayload: Codable {
     let rightThumbstickButton: ButtonInputStatePayload?
 }
 
-struct DualShockGamepadDetailsPayload: Codable {
+struct DualShockGamepadDetailsPayload {
     let touchpadButton: ButtonInputStatePayload
     let touchpadPrimary: DirectionPadInputStatePayload
     let touchpadSecondary: DirectionPadInputStatePayload
 }
 
-struct DualSenseAdaptiveTriggerStatePayload: Codable {
+struct DualSenseAdaptiveTriggerStatePayload {
     let value: Float
     let pressed: Bool
     let touched: Bool
@@ -92,7 +92,7 @@ struct DualSenseAdaptiveTriggerStatePayload: Codable {
     let armPosition: Float
 }
 
-struct DualSenseGamepadDetailsPayload: Codable {
+struct DualSenseGamepadDetailsPayload {
     let touchpadButton: ButtonInputStatePayload
     let touchpadPrimary: DirectionPadInputStatePayload
     let touchpadSecondary: DirectionPadInputStatePayload
@@ -100,7 +100,7 @@ struct DualSenseGamepadDetailsPayload: Codable {
     let rightTrigger: DualSenseAdaptiveTriggerStatePayload
 }
 
-struct XboxGamepadDetailsPayload: Codable {
+struct XboxGamepadDetailsPayload {
     let paddleButton1: ButtonInputStatePayload?
     let paddleButton2: ButtonInputStatePayload?
     let paddleButton3: ButtonInputStatePayload?
@@ -108,39 +108,39 @@ struct XboxGamepadDetailsPayload: Codable {
     let buttonShare: ButtonInputStatePayload?
 }
 
-struct BatteryInfoPayload: Codable {
+struct BatteryInfoPayload {
     let level: Float
     let state: String
 }
 
-struct ColorPayload: Codable {
+struct ColorPayload {
     let red: Float
     let green: Float
     let blue: Float
 }
 
-struct DeviceLightDetailsPayload: Codable {
+struct DeviceLightDetailsPayload {
     let color: ColorPayload
 }
 
-struct DeviceHapticsDetailsPayload: Codable {
+struct DeviceHapticsDetailsPayload {
     let supportedLocalities: [String]
 }
 
-struct Vector3Payload: Codable {
+struct Vector3Payload {
     let x: Double
     let y: Double
     let z: Double
 }
 
-struct QuaternionPayload: Codable {
+struct QuaternionPayload {
     let x: Double
     let y: Double
     let z: Double
     let w: Double
 }
 
-struct MotionDetailsPayload: Codable {
+struct MotionDetailsPayload {
     let sensorsRequireManualActivation: Bool
     let sensorsActive: Bool
     let hasGravityAndUserAcceleration: Bool
@@ -153,27 +153,27 @@ struct MotionDetailsPayload: Codable {
     let rotationRate: Vector3Payload
 }
 
-struct NamedButtonInputStatePayload: Codable {
+struct NamedButtonInputStatePayload {
     let alias: String
     let value: ButtonInputStatePayload
 }
 
-struct NamedAxisInputStatePayload: Codable {
+struct NamedAxisInputStatePayload {
     let alias: String
     let value: AxisInputStatePayload
 }
 
-struct NamedDirectionPadStatePayload: Codable {
+struct NamedDirectionPadStatePayload {
     let alias: String
     let value: DirectionPadInputStatePayload
 }
 
-struct NamedTouchpadStatePayload: Codable {
+struct NamedTouchpadStatePayload {
     let alias: String
     let value: TouchpadDetailsPayload
 }
 
-struct PhysicalInputProfileDetailsPayload: Codable {
+struct PhysicalInputProfileDetailsPayload {
     let lastEventTimestamp: Double
     let hasRemappedElements: Bool
     let elementAliases: [String]
@@ -187,25 +187,25 @@ struct PhysicalInputProfileDetailsPayload: Codable {
     let touchpads: [NamedTouchpadStatePayload]
 }
 
-struct InputElementMetadataPayload: Codable {
+struct InputElementMetadataPayload {
     let primaryAlias: String
     let aliases: [String]
     let localizedName: String?
     let sfSymbolsName: String?
 }
 
-struct DevicePhysicalInputStateDiffDetailsPayload: Codable {
+struct DevicePhysicalInputStateDiffDetailsPayload {
     let changedElementsKnown: Bool
     let changedAliases: [String]
     let changedElements: [InputElementMetadataPayload]
 }
 
-struct AxisElementStatePayload: Codable {
+struct AxisElementStatePayload {
     let absoluteValue: Float?
     let relativeDelta: Float
 }
 
-struct SwitchInputStatePayload: Codable {
+struct SwitchInputStatePayload {
     let position: Int
     let positionLowerBound: Int
     let positionCount: Int
@@ -213,7 +213,7 @@ struct SwitchInputStatePayload: Codable {
     let canWrap: Bool
 }
 
-struct NamedButtonElementStatePayload: Codable {
+struct NamedButtonElementStatePayload {
     let primaryAlias: String
     let aliases: [String]
     let localizedName: String?
@@ -221,7 +221,7 @@ struct NamedButtonElementStatePayload: Codable {
     let value: ButtonInputStatePayload
 }
 
-struct NamedAxisElementStatePayload: Codable {
+struct NamedAxisElementStatePayload {
     let primaryAlias: String
     let aliases: [String]
     let localizedName: String?
@@ -229,7 +229,7 @@ struct NamedAxisElementStatePayload: Codable {
     let value: AxisElementStatePayload
 }
 
-struct NamedSwitchElementStatePayload: Codable {
+struct NamedSwitchElementStatePayload {
     let primaryAlias: String
     let aliases: [String]
     let localizedName: String?
@@ -237,7 +237,7 @@ struct NamedSwitchElementStatePayload: Codable {
     let value: SwitchInputStatePayload
 }
 
-struct NamedDirectionPadElementStatePayload: Codable {
+struct NamedDirectionPadElementStatePayload {
     let primaryAlias: String
     let aliases: [String]
     let localizedName: String?
@@ -245,7 +245,7 @@ struct NamedDirectionPadElementStatePayload: Codable {
     let value: DirectionPadInputStatePayload
 }
 
-struct ControllerInputStateDetailsPayload: Codable {
+struct ControllerInputStateDetailsPayload {
     let lastEventTimestamp: Double
     let lastEventLatency: Double
     let elementCount: Int
@@ -261,14 +261,14 @@ struct ControllerInputStateDetailsPayload: Codable {
     let changedAliases: [String]
 }
 
-struct ControllerLiveInputDetailsPayload: Codable {
+struct ControllerLiveInputDetailsPayload {
     let inputStateQueueDepth: Int
     let live: ControllerInputStateDetailsPayload
     let unmapped: ControllerInputStateDetailsPayload?
     let next: ControllerInputStateDetailsPayload?
 }
 
-struct DevicePhysicalInputSourceDetailsPayload: Codable {
+struct DevicePhysicalInputSourceDetailsPayload {
     let inputStateQueueDepth: Int
     let live: ControllerInputStateDetailsPayload
     let capture: ControllerInputStateDetailsPayload
@@ -277,7 +277,7 @@ struct DevicePhysicalInputSourceDetailsPayload: Codable {
     let nextDiff: DevicePhysicalInputStateDiffDetailsPayload?
 }
 
-struct ControllerDetailsPayload: Codable {
+struct ControllerDetailsPayload {
     let vendorName: String
     let productCategory: String
     let playerIndex: Int32
@@ -302,7 +302,7 @@ struct ControllerDetailsPayload: Codable {
     let input: ControllerLiveInputDetailsPayload?
 }
 
-struct KeyboardSnapshotPayload: Codable {
+struct KeyboardSnapshotPayload {
     let vendorName: String
     let productCategory: String
     let anyKeyPressed: Bool
@@ -311,7 +311,7 @@ struct KeyboardSnapshotPayload: Codable {
     let physicalInput: PhysicalInputProfileDetailsPayload
 }
 
-struct MouseSnapshotPayload: Codable {
+struct MouseSnapshotPayload {
     let vendorName: String
     let productCategory: String
     let isCurrent: Bool
@@ -324,17 +324,17 @@ struct MouseSnapshotPayload: Codable {
     let physicalInput: PhysicalInputProfileDetailsPayload
 }
 
-struct EventViewControllerPayload: Codable {
+struct EventViewControllerPayload {
     let controllerUserInteractionEnabled: Bool
 }
 
-struct SteeringWheelDetailsPayload: Codable {
+struct SteeringWheelDetailsPayload {
     let maximumDegreesOfRotation: Float
     let absoluteValue: Float?
     let relativeDelta: Float
 }
 
-struct GearShifterDetailsPayload: Codable {
+struct GearShifterDetailsPayload {
     let aliases: [String]
     let localizedName: String?
     let sfSymbolsName: String?
@@ -346,7 +346,7 @@ struct GearShifterDetailsPayload: Codable {
     let sequentialDelta: Float?
 }
 
-struct RacingWheelInputDetailsPayload: Codable {
+struct RacingWheelInputDetailsPayload {
     let wheel: SteeringWheelDetailsPayload
     let acceleratorPedal: ButtonInputStatePayload?
     let brakePedal: ButtonInputStatePayload?
@@ -354,7 +354,7 @@ struct RacingWheelInputDetailsPayload: Codable {
     let shifter: GearShifterDetailsPayload?
 }
 
-struct RacingWheelDetailsPayload: Codable {
+struct RacingWheelDetailsPayload {
     let vendorName: String
     let productCategory: String
     let isAcquired: Bool

@@ -1,8 +1,9 @@
+import GameControllerABI
 import Foundation
 import GameController
 
-@_cdecl("gc_connected_devices_json")
-public func gc_connected_devices_json() -> UnsafeMutablePointer<CChar>? {
+@_cdecl("gc_connected_devices")
+public func gc_connected_devices(_ out: UnsafeMutablePointer<GCSnapshotRaw>) {
     let controllers = GCController.controllers().map(deviceDetailsPayload)
 
     let keyboard: DeviceDetailsPayload?
@@ -26,25 +27,27 @@ public func gc_connected_devices_json() -> UnsafeMutablePointer<CChar>? {
         racingWheels = []
     }
 
-    return jsonString(
-        ConnectedDevicesSnapshotPayload(
+    out.pointee = gcSnapshot([ConnectedDevicesSnapshotPayload(
             controllers: controllers,
             keyboard: keyboard,
             mouse: mouse,
             racingWheels: racingWheels
-        )
-    )
+        )])
+    return
 }
 
-@_cdecl("gc_current_controller_elements_json")
-public func gc_current_controller_elements_json() -> UnsafeMutablePointer<CChar>? {
-    return jsonString(currentControllerElementPayloads())
+@_cdecl("gc_current_controller_elements")
+public func gc_current_controller_elements(_ out: UnsafeMutablePointer<GCSnapshotRaw>) {
+    out.pointee = gcSnapshot(currentControllerElementPayloads())
+    return
 }
 
-@_cdecl("gc_current_controller_physical_input_elements_json")
-public func gc_current_controller_physical_input_elements_json() -> UnsafeMutablePointer<CChar>? {
+@_cdecl("gc_current_controller_physical_input_elements")
+public func gc_current_controller_physical_input_elements(_ out: UnsafeMutablePointer<GCSnapshotRaw>) {
     if #available(macOS 14.0, *) {
-        return jsonString(currentControllerPhysicalInputElementSnapshotPayload())
+        out.pointee = gcSnapshot((currentControllerPhysicalInputElementSnapshotPayload()).map { [$0] } ?? [])
+    return
     }
-    return jsonString(Optional<PhysicalInputElementSnapshotPayload>.none)
+    out.pointee = gcSnapshot((Optional<PhysicalInputElementSnapshotPayload>.none).map { [$0] } ?? [])
+    return
 }

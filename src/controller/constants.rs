@@ -8,8 +8,6 @@ use core::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
 };
 
-use serde::Deserialize;
-
 /// Low-level HID-page-7 key code type mirroring Apple's `GCKeyCode`.
 pub type GCKeyCode = isize;
 
@@ -175,7 +173,7 @@ impl fmt::Display for ProductCategory {
 pub type GCProductCategory = ProductCategory;
 
 /// Two-dimensional value mirroring Apple's `GCPoint2`.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Point2 {
 /// Mirrors the `GameController` framework property for `x`.
     pub x: f32,
@@ -190,7 +188,7 @@ pub type GCPoint2 = Point2;
 pub const POINT2_ZERO: GCPoint2 = GCPoint2 { x: 0.0, y: 0.0 };
 
 /// Euler-angle triple mirroring Apple's `GCEulerAngles`.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct EulerAngles {
 /// Mirrors the `GameController` framework property for `pitch`.
     pub pitch: f64,
@@ -207,7 +205,7 @@ pub type GCEulerAngles = EulerAngles;
 pub const DUALSENSE_ADAPTIVE_TRIGGER_DISCRETE_POSITION_COUNT: usize = 10;
 
 /// Raw positional amplitudes mirroring Apple's `GCDualSenseAdaptiveTriggerPositionalAmplitudes`.
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DualSenseAdaptiveTriggerPositionalAmplitudes {
 /// Mirrors the `GameController` framework property for `values`.
     pub values: [f32; DUALSENSE_ADAPTIVE_TRIGGER_DISCRETE_POSITION_COUNT],
@@ -226,7 +224,7 @@ pub type GCDualSenseAdaptiveTriggerPositionalAmplitudes =
     DualSenseAdaptiveTriggerPositionalAmplitudes;
 
 /// Raw positional resistive strengths mirroring Apple's `GCDualSenseAdaptiveTriggerPositionalResistiveStrengths`.
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DualSenseAdaptiveTriggerPositionalResistiveStrengths {
 /// Mirrors the `GameController` framework property for `values`.
     pub values: [f32; DUALSENSE_ADAPTIVE_TRIGGER_DISCRETE_POSITION_COUNT],
@@ -245,8 +243,7 @@ pub type GCDualSenseAdaptiveTriggerPositionalResistiveStrengths =
     DualSenseAdaptiveTriggerPositionalResistiveStrengths;
 
 /// Rust mirror of Apple's `GCSystemGestureState` enum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SystemGestureState {
 /// Mirrors the `GameController` framework case `Enabled`.
     Enabled,
@@ -260,11 +257,14 @@ pub enum SystemGestureState {
 pub type GCSystemGestureState = SystemGestureState;
 
 /// Bitflag wrapper mirroring Apple's `GCPhysicalInputSourceDirection` options type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deserialize)]
-#[serde(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct PhysicalInputSourceDirection(u8);
 
 impl PhysicalInputSourceDirection {
+    pub(crate) const fn from_bits(bits: u8) -> Self {
+        Self(bits)
+    }
+
 /// Mirrors the `GameController` framework constant `NOT_APPLICABLE`.
     pub const NOT_APPLICABLE: Self = Self(0);
 /// Mirrors the `GameController` framework constant `UP`.

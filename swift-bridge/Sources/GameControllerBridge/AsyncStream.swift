@@ -1,3 +1,4 @@
+import GameControllerABI
 import Foundation
 import GameController
 
@@ -11,45 +12,9 @@ public typealias GCStreamEventCallback = @convention(c) (
 
 // MARK: - Payload structs (must match Rust repr(C) structs exactly)
 
-@frozen
-public struct GCKeyEventRaw {
-    public var keycode: Int64
-    public var pressed: Bool
-    public var value: Float
-}
 
-@frozen
-public struct GCMouseEventRaw {
-    public var delta_x: Float
-    public var delta_y: Float
-    public var pressed: Bool
-    public var value: Float
-}
 
-@frozen
-public struct GCMotionEventRaw {
-    public var gravity_x: Double
-    public var gravity_y: Double
-    public var gravity_z: Double
-    public var user_acceleration_x: Double
-    public var user_acceleration_y: Double
-    public var user_acceleration_z: Double
-    public var attitude_x: Double
-    public var attitude_y: Double
-    public var attitude_z: Double
-    public var attitude_w: Double
-    public var rotation_rate_x: Double
-    public var rotation_rate_y: Double
-    public var rotation_rate_z: Double
-}
 
-@frozen
-public struct GCMicroGamepadEventRaw {
-    public var button_a: Float
-    public var button_x: Float
-    public var dpad_x: Float
-    public var dpad_y: Float
-}
 
 private final class StreamSubscriber {
     let onEvent: GCStreamEventCallback

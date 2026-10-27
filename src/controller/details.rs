@@ -1,8 +1,3 @@
-use core::ffi::CStr;
-use std::ffi::c_char;
-
-use serde::{de::DeserializeOwned, Deserialize};
-
 use crate::error::GameControllerError;
 use crate::ffi;
 
@@ -12,8 +7,7 @@ use super::{
 };
 
 /// Mirrors the `GameController` framework counterpart for `TouchState`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TouchState {
 /// Mirrors the `GameController` framework case `Up`.
     Up,
@@ -24,8 +18,7 @@ pub enum TouchState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DualSenseTriggerMode`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DualSenseTriggerMode {
 /// Mirrors the `GameController` framework case `Off`.
     Off,
@@ -40,8 +33,7 @@ pub enum DualSenseTriggerMode {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DualSenseTriggerStatus`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DualSenseTriggerStatus {
 /// Mirrors the `GameController` framework case `Unknown`.
     Unknown,
@@ -68,7 +60,7 @@ pub enum DualSenseTriggerStatus {
 }
 
 /// Mirrors the `GameController` framework counterpart for `Vector3`.
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vector3 {
 /// Mirrors the `GameController` framework property for `x`.
     pub x: f64,
@@ -79,7 +71,7 @@ pub struct Vector3 {
 }
 
 /// Mirrors the `GameController` framework counterpart for `Quaternion`.
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quaternion {
 /// Mirrors the `GameController` framework property for `x`.
     pub x: f64,
@@ -121,7 +113,7 @@ impl From<Quaternion> for EulerAngles {
 }
 
 /// Mirrors the `GameController` framework counterpart for `Color`.
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
 /// Mirrors the `GameController` framework property for `red`.
     pub red: f32,
@@ -132,8 +124,7 @@ pub struct Color {
 }
 
 /// Mirrors the `GameController` framework counterpart for `ButtonInputState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ButtonInputState {
 /// Mirrors the `GameController` framework property for `value`.
     pub value: f32,
@@ -147,16 +138,14 @@ pub struct ButtonInputState {
 pub type GCButtonInput = ButtonInputState;
 
 /// Mirrors the `GameController` framework counterpart for `AxisInputState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AxisInputState {
 /// Mirrors the `GameController` framework property for `value`.
     pub value: f32,
 }
 
 /// Mirrors the `GameController` framework counterpart for `DirectionPadInputState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DirectionPadInputState {
 /// Mirrors the `GameController` framework property for `x`.
     pub x: f32,
@@ -178,8 +167,7 @@ pub type DeviceCursorState = DirectionPadInputState;
 pub type GCDeviceCursor = DeviceCursorState;
 
 /// Mirrors the `GameController` framework counterpart for `TouchpadDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TouchpadDetails {
 /// Mirrors the `GameController` framework property for `button`.
     pub button: ButtonInputState,
@@ -192,8 +180,7 @@ pub struct TouchpadDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `GamepadDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GamepadDetails {
 /// Mirrors the `GameController` framework property for `dpad`.
     pub dpad: DirectionPadInputState,
@@ -212,8 +199,7 @@ pub struct GamepadDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `MicroGamepadDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MicroGamepadDetails {
 /// Mirrors the `GameController` framework property for `dpad`.
     pub dpad: DirectionPadInputState,
@@ -230,8 +216,7 @@ pub struct MicroGamepadDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DirectionalGamepadDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DirectionalGamepadDetails {
 /// Mirrors the `GameController` framework property for `dpad`.
     pub dpad: DirectionPadInputState,
@@ -248,8 +233,7 @@ pub struct DirectionalGamepadDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `ExtendedGamepadDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExtendedGamepadDetails {
 /// Mirrors the `GameController` framework property for `dpad`.
     pub dpad: DirectionPadInputState,
@@ -286,8 +270,7 @@ pub struct ExtendedGamepadDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DualShockGamepadDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DualShockGamepadDetails {
 /// Mirrors the `GameController` framework property for `touchpad_button`.
     pub touchpad_button: ButtonInputState,
@@ -298,8 +281,7 @@ pub struct DualShockGamepadDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DualSenseAdaptiveTriggerState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DualSenseAdaptiveTriggerState {
 /// Mirrors the `GameController` framework property for `value`.
     pub value: f32,
@@ -316,8 +298,7 @@ pub struct DualSenseAdaptiveTriggerState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DualSenseGamepadDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DualSenseGamepadDetails {
 /// Mirrors the `GameController` framework property for `touchpad_button`.
     pub touchpad_button: ButtonInputState,
@@ -332,8 +313,7 @@ pub struct DualSenseGamepadDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `XboxGamepadDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct XboxGamepadDetails {
 /// Mirrors the `GameController` framework property for `paddle_button1`.
     pub paddle_button1: Option<ButtonInputState>,
@@ -348,8 +328,7 @@ pub struct XboxGamepadDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `BatteryInfo`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BatteryInfo {
 /// Mirrors the `GameController` framework property for `level`.
     pub level: f32,
@@ -358,16 +337,14 @@ pub struct BatteryInfo {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DeviceLightDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DeviceLightDetails {
 /// Mirrors the `GameController` framework property for `color`.
     pub color: Color,
 }
 
 /// Mirrors the `GameController` framework counterpart for `DeviceHapticsDetails`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceHapticsDetails {
 /// Mirrors the `GameController` framework property for `supported_localities`.
     pub supported_localities: Vec<String>,
@@ -393,8 +370,7 @@ impl DeviceHapticsDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DeviceDetails`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceDetails {
 /// Mirrors the `GameController` framework property for `vendor_name`.
     pub vendor_name: String,
@@ -408,8 +384,7 @@ pub struct DeviceDetails {
 pub type GCDevice = DeviceDetails;
 
 /// Mirrors the `GameController` framework counterpart for `ConnectedDevicesSnapshot`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConnectedDevicesSnapshot {
 /// Mirrors the `GameController` framework property for `controllers`.
     pub controllers: Vec<DeviceDetails>,
@@ -422,8 +397,7 @@ pub struct ConnectedDevicesSnapshot {
 }
 
 /// Mirrors the `GameController` framework counterpart for `MotionDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct MotionDetails {
 /// Mirrors the `GameController` framework property for `sensors_require_manual_activation`.
@@ -449,8 +423,7 @@ pub struct MotionDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `NamedButtonInputState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NamedButtonInputState {
 /// Mirrors the `GameController` framework property for `alias`.
     pub alias: String,
@@ -459,8 +432,7 @@ pub struct NamedButtonInputState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `NamedAxisInputState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NamedAxisInputState {
 /// Mirrors the `GameController` framework property for `alias`.
     pub alias: String,
@@ -469,8 +441,7 @@ pub struct NamedAxisInputState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `NamedDirectionPadState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NamedDirectionPadState {
 /// Mirrors the `GameController` framework property for `alias`.
     pub alias: String,
@@ -479,8 +450,7 @@ pub struct NamedDirectionPadState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `NamedTouchpadState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NamedTouchpadState {
 /// Mirrors the `GameController` framework property for `alias`.
     pub alias: String,
@@ -489,8 +459,7 @@ pub struct NamedTouchpadState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `PhysicalInputProfileDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PhysicalInputProfileDetails {
 /// Mirrors the `GameController` framework property for `last_event_timestamp`.
     pub last_event_timestamp: f64,
@@ -517,8 +486,7 @@ pub struct PhysicalInputProfileDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `AxisElementState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AxisElementState {
 /// Mirrors the `GameController` framework property for `absolute_value`.
     pub absolute_value: Option<f32>,
@@ -527,8 +495,7 @@ pub struct AxisElementState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `SwitchInputState`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SwitchInputState {
 /// Mirrors the `GameController` framework property for `position`.
     pub position: i32,
@@ -546,8 +513,7 @@ pub struct SwitchInputState {
 pub type GCSwitchInput = SwitchInputState;
 
 /// Mirrors the `GameController` framework counterpart for `NamedButtonElementState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NamedButtonElementState {
 /// Mirrors the `GameController` framework property for `primary_alias`.
     pub primary_alias: String,
@@ -562,8 +528,7 @@ pub struct NamedButtonElementState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `NamedAxisElementState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NamedAxisElementState {
 /// Mirrors the `GameController` framework property for `primary_alias`.
     pub primary_alias: String,
@@ -578,8 +543,7 @@ pub struct NamedAxisElementState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `NamedSwitchElementState`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamedSwitchElementState {
 /// Mirrors the `GameController` framework property for `primary_alias`.
     pub primary_alias: String,
@@ -594,8 +558,7 @@ pub struct NamedSwitchElementState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `NamedDirectionPadElementState`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NamedDirectionPadElementState {
 /// Mirrors the `GameController` framework property for `primary_alias`.
     pub primary_alias: String,
@@ -610,8 +573,7 @@ pub struct NamedDirectionPadElementState {
 }
 
 /// Mirrors the `GameController` framework counterpart for `InputElementMetadata`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputElementMetadata {
 /// Mirrors the `GameController` framework property for `primary_alias`.
     pub primary_alias: String,
@@ -624,8 +586,7 @@ pub struct InputElementMetadata {
 }
 
 /// Mirrors the `GameController` framework counterpart for `ControllerElementDetails`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ControllerElementDetails {
 /// Mirrors the `GameController` framework property for `analog`.
     pub analog: bool,
@@ -649,8 +610,7 @@ pub struct ControllerElementDetails {
 pub type GCControllerElement = ControllerElementDetails;
 
 /// Mirrors the `GameController` framework counterpart for `NamedControllerElementDetails`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamedControllerElementDetails {
 /// Mirrors the `GameController` framework property for `name`.
     pub name: String,
@@ -659,8 +619,7 @@ pub struct NamedControllerElementDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `PhysicalInputSourceDetails`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PhysicalInputSourceDetails {
 /// Mirrors the `GameController` framework property for `element_aliases`.
     pub element_aliases: Vec<String>,
@@ -676,8 +635,7 @@ pub struct PhysicalInputSourceDetails {
 pub type GCPhysicalInputSource = PhysicalInputSourceDetails;
 
 /// Mirrors the `GameController` framework counterpart for `PhysicalInputExtentsDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PhysicalInputExtentsDetails {
 /// Mirrors the `GameController` framework property for `scaled_value`.
     pub scaled_value: f64,
@@ -691,8 +649,7 @@ pub struct PhysicalInputExtentsDetails {
 pub type GCPhysicalInputExtents = PhysicalInputExtentsDetails;
 
 /// Mirrors the `GameController` framework counterpart for `LinearInputDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LinearInputDetails {
 /// Mirrors the `GameController` framework property for `value`.
     pub value: f32,
@@ -711,8 +668,7 @@ pub struct LinearInputDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `PressedStateInputDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PressedStateInputDetails {
 /// Mirrors the `GameController` framework property for `pressed`.
     pub pressed: bool,
@@ -725,8 +681,7 @@ pub struct PressedStateInputDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `TouchedStateInputDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TouchedStateInputDetails {
 /// Mirrors the `GameController` framework property for `touched`.
     pub touched: bool,
@@ -739,8 +694,7 @@ pub struct TouchedStateInputDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `RelativeInputDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RelativeInputDetails {
 /// Mirrors the `GameController` framework property for `delta`.
     pub delta: f32,
@@ -755,8 +709,7 @@ pub struct RelativeInputDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `AxisInputDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AxisInputDetails {
 /// Mirrors the `GameController` framework property for `value`.
     pub value: f32,
@@ -776,8 +729,7 @@ pub struct AxisInputDetails {
 pub type GCAxisInput = AxisInputDetails;
 
 /// Mirrors the `GameController` framework counterpart for `Axis2DInputDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Axis2DInputDetails {
 /// Mirrors the `GameController` framework property for `value`.
     pub value: GCPoint2,
@@ -797,8 +749,7 @@ pub struct Axis2DInputDetails {
 pub type GCAxis2DInput = Axis2DInputDetails;
 
 /// Mirrors the `GameController` framework counterpart for `SwitchPositionInputDetails`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SwitchPositionInputDetails {
 /// Mirrors the `GameController` framework property for `position`.
     pub position: i32,
@@ -815,8 +766,7 @@ pub struct SwitchPositionInputDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `LinearPressedInputDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LinearPressedInputDetails {
 /// Mirrors the `GameController` framework property for `linear_input`.
     pub linear_input: LinearInputDetails,
@@ -825,8 +775,7 @@ pub struct LinearPressedInputDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `ButtonElementDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ButtonElementDetails {
 /// Mirrors the `GameController` framework property for `metadata`.
     pub metadata: InputElementMetadata,
@@ -841,8 +790,7 @@ pub struct ButtonElementDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `AxisElementDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AxisElementDetails {
 /// Mirrors the `GameController` framework property for `metadata`.
     pub metadata: InputElementMetadata,
@@ -853,8 +801,7 @@ pub struct AxisElementDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `SwitchElementDetails`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SwitchElementDetails {
 /// Mirrors the `GameController` framework property for `metadata`.
     pub metadata: InputElementMetadata,
@@ -863,8 +810,7 @@ pub struct SwitchElementDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DirectionPadElementDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DirectionPadElementDetails {
 /// Mirrors the `GameController` framework property for `metadata`.
     pub metadata: InputElementMetadata,
@@ -888,8 +834,7 @@ pub struct DirectionPadElementDetails {
 pub type GCPhysicalInputElementCollection<T> = Vec<T>;
 
 /// Mirrors the `GameController` framework counterpart for `PhysicalInputElementSnapshot`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PhysicalInputElementSnapshot {
 /// Mirrors the `GameController` framework property for `buttons`.
     pub buttons: GCPhysicalInputElementCollection<ButtonElementDetails>,
@@ -902,8 +847,7 @@ pub struct PhysicalInputElementSnapshot {
 }
 
 /// Mirrors the `GameController` framework counterpart for `DevicePhysicalInputElementChange`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DevicePhysicalInputElementChange {
 /// Mirrors the `GameController` framework case `Unknown`.
     Unknown,
@@ -917,8 +861,7 @@ pub enum DevicePhysicalInputElementChange {
 pub type GCDevicePhysicalInputElementChange = DevicePhysicalInputElementChange;
 
 /// Mirrors the `GameController` framework counterpart for `DevicePhysicalInputStateDiffDetails`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DevicePhysicalInputStateDiffDetails {
 /// Mirrors the `GameController` framework property for `changed_elements_known`.
     pub changed_elements_known: bool,
@@ -951,8 +894,7 @@ impl DevicePhysicalInputStateDiffDetails {
 pub type GCDevicePhysicalInputStateDiff = DevicePhysicalInputStateDiffDetails;
 
 /// Mirrors the `GameController` framework counterpart for `ControllerInputStateDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ControllerInputStateDetails {
 /// Mirrors the `GameController` framework property for `last_event_timestamp`.
     pub last_event_timestamp: f64,
@@ -983,8 +925,7 @@ pub struct ControllerInputStateDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `ControllerLiveInputDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ControllerLiveInputDetails {
 /// Mirrors the `GameController` framework property for `input_state_queue_depth`.
     pub input_state_queue_depth: isize,
@@ -1002,8 +943,7 @@ pub type DevicePhysicalInputState = ControllerInputStateDetails;
 pub type GCDevicePhysicalInputState = DevicePhysicalInputState;
 
 /// Mirrors the `GameController` framework counterpart for `DevicePhysicalInputSourceDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DevicePhysicalInputSourceDetails {
 /// Mirrors the `GameController` framework property for `input_state_queue_depth`.
     pub input_state_queue_depth: isize,
@@ -1025,8 +965,7 @@ pub type DevicePhysicalInput = DevicePhysicalInputSourceDetails;
 pub type GCDevicePhysicalInput = DevicePhysicalInput;
 
 /// Mirrors the `GameController` framework counterpart for `ControllerDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct ControllerDetails {
 /// Mirrors the `GameController` framework property for `vendor_name`.
@@ -1076,8 +1015,7 @@ pub struct ControllerDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `KeyboardSnapshot`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct KeyboardSnapshot {
 /// Mirrors the `GameController` framework property for `vendor_name`.
     pub vendor_name: String,
@@ -1094,8 +1032,7 @@ pub struct KeyboardSnapshot {
 }
 
 /// Mirrors the `GameController` framework counterpart for `MouseSnapshot`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MouseSnapshot {
 /// Mirrors the `GameController` framework property for `vendor_name`.
     pub vendor_name: String,
@@ -1120,16 +1057,14 @@ pub struct MouseSnapshot {
 }
 
 /// Mirrors the `GameController` framework counterpart for `EventViewControllerDetails`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EventViewControllerDetails {
 /// Mirrors the `GameController` framework property for `controller_user_interaction_enabled`.
     pub controller_user_interaction_enabled: bool,
 }
 
 /// Mirrors the `GameController` framework counterpart for `SteeringWheelDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SteeringWheelDetails {
 /// Mirrors the `GameController` framework property for `maximum_degrees_of_rotation`.
     pub maximum_degrees_of_rotation: f32,
@@ -1140,8 +1075,7 @@ pub struct SteeringWheelDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `GearShifterDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GearShifterDetails {
 /// Mirrors the `GameController` framework property for `aliases`.
     pub aliases: Vec<String>,
@@ -1164,8 +1098,7 @@ pub struct GearShifterDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `RacingWheelInputDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RacingWheelInputDetails {
 /// Mirrors the `GameController` framework property for `wheel`.
     pub wheel: SteeringWheelDetails,
@@ -1180,8 +1113,7 @@ pub struct RacingWheelInputDetails {
 }
 
 /// Mirrors the `GameController` framework counterpart for `RacingWheelDetails`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RacingWheelDetails {
 /// Mirrors the `GameController` framework property for `vendor_name`.
     pub vendor_name: String,
@@ -1203,29 +1135,26 @@ pub struct RacingWheelDetails {
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn connected_controller_details() -> Result<Vec<ControllerDetails>, GameControllerError> {
-    parse_json(unsafe { ffi::gc_controller_details_json(false) })
+    ffi::snapshots::read(|out| unsafe { ffi::gc_controller_details(false, out) })
 }
 
 /// Snapshot `GCController.current`, if one exists.
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn current_controller_details() -> Result<Option<ControllerDetails>, GameControllerError> {
-    Ok(
-        parse_json::<Vec<ControllerDetails>>(unsafe { ffi::gc_controller_details_json(true) })?
+    Ok(ffi::snapshots::read::<ControllerDetails>(|out| unsafe {
+        ffi::gc_controller_details(true, out);
+    })?
             .into_iter()
-            .next(),
-    )
+    .next())
 }
 
 /// Convenience alias for [`current_controller_details`].
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn current_controller_snapshot() -> Result<Option<ControllerDetails>, GameControllerError> {
     current_controller_details()
 }
@@ -1234,27 +1163,31 @@ pub fn current_controller_snapshot() -> Result<Option<ControllerDetails>, GameCo
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn keyboard_snapshot() -> Result<Option<KeyboardSnapshot>, GameControllerError> {
-    parse_json(unsafe { ffi::gc_keyboard_snapshot_json() })
+    Ok(
+        ffi::snapshots::read::<KeyboardSnapshot>(|out| unsafe { ffi::gc_keyboard_snapshot(out) })?
+            .pop(),
+    )
 }
 
 /// Snapshot the current mouse, if one is currently connected.
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn mouse_snapshot() -> Result<Option<MouseSnapshot>, GameControllerError> {
-    parse_json(unsafe { ffi::gc_mouse_snapshot_json() })
+    Ok(ffi::snapshots::read::<MouseSnapshot>(|out| unsafe { ffi::gc_mouse_snapshot(out) })?.pop())
 }
 
 /// Snapshot the default `GCEventViewController` configuration.
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn event_view_controller_snapshot() -> Result<EventViewControllerDetails, GameControllerError> {
-    parse_json(unsafe { ffi::gc_event_view_controller_snapshot_json() })
+    ffi::snapshots::read::<EventViewControllerDetails>(|out| unsafe {
+        ffi::gc_event_view_controller_snapshot(out);
+    })?
+    .pop()
+    .ok_or(GameControllerError::InvalidBridgeData)
 }
 
 /// Snapshot every connected racing wheel visible in the current process.
@@ -1265,16 +1198,14 @@ pub fn event_view_controller_snapshot() -> Result<EventViewControllerDetails, Ga
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn connected_racing_wheels() -> Result<Vec<RacingWheelDetails>, GameControllerError> {
-    parse_json(unsafe { ffi::gc_racing_wheels_json() })
+    ffi::snapshots::read(|out| unsafe { ffi::gc_racing_wheels(out) })
 }
 
 /// Return the first connected controller's battery snapshot, if any.
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn first_controller_battery() -> Result<Option<BatteryInfo>, GameControllerError> {
     Ok(connected_controller_details()?
         .into_iter()
@@ -1285,7 +1216,6 @@ pub fn first_controller_battery() -> Result<Option<BatteryInfo>, GameControllerE
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn first_controller_light() -> Result<Option<DeviceLightDetails>, GameControllerError> {
     Ok(connected_controller_details()?
         .into_iter()
@@ -1296,7 +1226,6 @@ pub fn first_controller_light() -> Result<Option<DeviceLightDetails>, GameContro
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn first_controller_haptics() -> Result<Option<DeviceHapticsDetails>, GameControllerError> {
     Ok(connected_controller_details()?
         .into_iter()
@@ -1308,7 +1237,6 @@ pub fn first_controller_haptics() -> Result<Option<DeviceHapticsDetails>, GameCo
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn current_controller_input_snapshot(
 ) -> Result<Option<ControllerLiveInputDetails>, GameControllerError> {
     Ok(current_controller_details()?.and_then(|controller| controller.input))
@@ -1320,10 +1248,14 @@ pub fn current_controller_input_snapshot(
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn current_controller_input_source(
 ) -> Result<Option<DevicePhysicalInputSourceDetails>, GameControllerError> {
-    parse_json(unsafe { ffi::gc_current_controller_input_source_json() })
+    Ok(
+        ffi::snapshots::read::<DevicePhysicalInputSourceDetails>(|out| unsafe {
+            ffi::gc_current_controller_input_source(out);
+        })?
+        .pop(),
+    )
 }
 
 /// Snapshot every connected `GCDevice`-conforming object that the crate can see.
@@ -1333,9 +1265,12 @@ pub fn current_controller_input_source(
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn connected_devices_snapshot() -> Result<ConnectedDevicesSnapshot, GameControllerError> {
-    parse_json(unsafe { ffi::gc_connected_devices_json() })
+    ffi::snapshots::read::<ConnectedDevicesSnapshot>(|out| unsafe {
+        ffi::gc_connected_devices(out);
+    })?
+    .pop()
+    .ok_or(GameControllerError::InvalidBridgeData)
 }
 
 /// Snapshot legacy `GCControllerElement` metadata for the current controller's
@@ -1345,10 +1280,9 @@ pub fn connected_devices_snapshot() -> Result<ConnectedDevicesSnapshot, GameCont
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn current_controller_elements(
 ) -> Result<Vec<NamedControllerElementDetails>, GameControllerError> {
-    parse_json(unsafe { ffi::gc_current_controller_elements_json() })
+    ffi::snapshots::read(|out| unsafe { ffi::gc_current_controller_elements(out) })
 }
 
 /// Snapshot the current controller's physical-input element collections, including
@@ -1356,22 +1290,12 @@ pub fn current_controller_elements(
 ///
 /// # Errors
 ///
-/// Returns an error if the Swift bridge returns invalid UTF-8 or malformed JSON.
 pub fn current_controller_physical_input_elements(
 ) -> Result<Option<PhysicalInputElementSnapshot>, GameControllerError> {
-    parse_json(unsafe { ffi::gc_current_controller_physical_input_elements_json() })
-}
-
-fn parse_json<T: DeserializeOwned>(ptr: *mut c_char) -> Result<T, GameControllerError> {
-    let json = take_json_string(ptr)?;
-    Ok(serde_json::from_str(&json)?)
-}
-
-fn take_json_string(ptr: *mut c_char) -> Result<String, GameControllerError> {
-    if ptr.is_null() {
-        return Err(GameControllerError::NullBridgeResponse);
-    }
-    let text = unsafe { CStr::from_ptr(ptr) }.to_str()?.to_owned();
-    unsafe { ffi::gc_string_free(ptr) };
-    Ok(text)
+    Ok(
+        ffi::snapshots::read::<PhysicalInputElementSnapshot>(|out| unsafe {
+            ffi::gc_current_controller_physical_input_elements(out);
+        })?
+        .pop(),
+    )
 }

@@ -2,13 +2,15 @@
 
 Safe Rust bindings for Apple's [GameController](https://developer.apple.com/documentation/gamecontroller) framework on macOS.
 
-> **Status:** `0.9.1` adds `ControllerHandle::extended_gamepad_state`. `0.9.0` fixes use-after-free and data-race bugs in the watchers and async streams, lets several streams share one controller handler, adds per-controller `ControllerHandle`s for light, player index, rumble and `DualSense` triggers, and adds the macOS 26.4 side-button input names. The coverage audit counts top-level symbols, not methods (see [`COVERAGE.md`](COVERAGE.md)).
+Version `0.10.0` uses binary C records for every snapshot.
+The safe snapshot and controller handle APIs stay the same.
+The coverage audit counts top-level symbols, not methods. See [`COVERAGE.md`](COVERAGE.md).
 
 ## Installation
 
 ```toml
 [dependencies]
-gamecontroller = "0.9"
+gamecontroller = "0.10"
 ```
 
 ## Requirements
@@ -60,7 +62,7 @@ fn main() -> Result<(), GameControllerError> {
 ## Surface highlights
 
 - `connected_controllers()` for lightweight polling snapshots.
-- `connected_controller_details()` / `current_controller_snapshot()` for richer JSON-backed controller/profile snapshots.
+- `connected_controller_details()` / `current_controller_snapshot()` for detailed controller and profile snapshots.
 - `current_controller_input_snapshot()` for `GCController.input` / `GCControllerLiveInput` / `GCControllerInputState` capture data.
 - `current_controller_input_source()` for direct `GCDevicePhysicalInput` live/captured/queued-diff snapshots.
 - `current_controller_elements()` / `current_controller_physical_input_elements()` for legacy `GCControllerElement` metadata plus generic physical-input/source/extents snapshots.
@@ -85,7 +87,7 @@ Enable the `async` feature to await wireless discovery without wiring a callback
 
 ```toml
 [dependencies]
-gamecontroller = { version = "0.9", features = ["async"] }
+gamecontroller = { version = "0.10", features = ["async"] }
 ```
 
 ```rust,no_run
@@ -106,6 +108,11 @@ async fn example() -> Result<(), gamecontroller::GameControllerError> {
 
 ## Notes
 
+- The Swift bridge imports `GameControllerABI.h`. The Rust bridge uses matching `#[repr(C)]` records.
+- Strings and arrays use a pointer and a length. Optional fields use nullable pointers. Enum fields use integer tags.
+- Swift owns each snapshot arena. Rust copies its fields and releases the arena with `gc_snapshot_free`, also after an error.
+- The raw snapshot functions replace the former JSON functions. `GameControllerError::InvalidBridgeData` replaces the JSON error variant.
+- The crate has no serialization dependency. Snapshot fields retain their existing Rust types.
 - Wireless-discovery completion callbacks and connection notifications fire on the main run loop.
 - `gamepad` support is included for completeness even though Apple prefers `extendedGamepad`.
 - The crate is snapshot-first. The async streams are the only code that installs `valueChangedHandler`, `keyChangedHandler` and the mouse handlers. They share one handler per device: several streams can subscribe at once, a handler the app installed earlier keeps being called, and it is restored when the last stream is dropped. Handler-queue mutation and exclusive `GCRacingWheel` acquisition are not wrapped.
